@@ -191,7 +191,7 @@ export default function JewelryManagement() {
 }
 
 function JewelryForm({ item, types, onClose, onSaved }) {
-  const [form, setForm] = useState(
+  const [initialForm] = useState(() =>
     item
       ? {
           name: item.name ?? '',
@@ -205,6 +205,7 @@ function JewelryForm({ item, types, onClose, onSaved }) {
         }
       : EMPTY
   );
+  const [form, setForm] = useState(initialForm);
   const [placements, setPlacements] = useState(
     () => item?.jewelry_compatibility?.filter((c) => c.approved).map((c) => c.piercing_type_id) ?? []
   );
@@ -227,7 +228,9 @@ function JewelryForm({ item, types, onClose, onSaved }) {
   const pickFile = (e) => {
     const f = e.target.files?.[0];
     if (!f) return;
-    if (!f.type.startsWith('image/')) return setErr('Please choose an image file.');
+    if (!['image/jpeg', 'image/png', 'image/webp', 'image/gif'].includes(f.type)) {
+      return setErr('Please choose a JPG, PNG, WebP or GIF image.');
+    }
     if (f.size > MAX_IMAGE_BYTES) return setErr('Image is too large. Please keep it under 2 MB.');
     setErr('');
     setFile(f);
@@ -275,10 +278,17 @@ function JewelryForm({ item, types, onClose, onSaved }) {
   };
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/70 flex items-center justify-center p-4" onClick={onClose}>
+    <div
+      className="fixed inset-0 z-50 bg-black/70 flex items-center justify-center p-4"
+      onMouseDown={(e) => {
+        // close only on a real click on the dark backdrop, and ask first if the form has unsaved typing
+        if (e.target !== e.currentTarget) return;
+        const dirty = JSON.stringify(form) !== JSON.stringify(initialForm) || file;
+        if (!dirty || window.confirm('Discard your changes?')) onClose();
+      }}
+    >
       <form
         onSubmit={submit}
-        onClick={(e) => e.stopPropagation()}
         className="w-full max-w-2xl max-h-[90vh] overflow-y-auto bg-brand-dark border border-brand-blood/30 p-8 space-y-6"
       >
         <h3 className="text-2xl font-serif text-brand-cream">{item ? 'Edit Piece' : 'Add Piece'}</h3>
@@ -334,7 +344,7 @@ function JewelryForm({ item, types, onClose, onSaved }) {
             <div className="h-20 w-20 bg-brand-black border border-brand-blood/20 overflow-hidden flex items-center justify-center shrink-0">
               {preview ? <img src={preview} alt="" className="h-full w-full object-cover" /> : <span className="text-[10px] text-brand-muted">None</span>}
             </div>
-            <input type="file" accept="image/*" onChange={pickFile} className="text-xs text-brand-muted" />
+            <input type="file" accept="image/jpeg,image/png,image/webp,image/gif" onChange={pickFile} className="text-xs text-brand-muted" />
           </div>
         </div>
 

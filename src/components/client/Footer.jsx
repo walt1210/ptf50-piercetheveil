@@ -1,4 +1,4 @@
-import logo from "../../assets/PTV-logo.png";
+import logo from "../../assets/PTV-logo.webp";
 
 export default function Footer() {
   return (

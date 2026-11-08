@@ -1,7 +1,8 @@
-import { useEffect, useState } from 'react';
+import { Fragment, useEffect, useState } from 'react';
 import { Filter } from 'lucide-react';
 import {
   adminUpdateAppointment,
+  getAppointmentEvents,
   getAvailableSlots,
   listAllAppointments,
 } from '../../features/appointments/appointmentService';
@@ -31,6 +32,8 @@ export default function Appointments() {
   const [slots, setSlots] = useState([]);
   const [slotsLoading, setSlotsLoading] = useState(false);
 
+  const [history, setHistory] = useState(null); // { id, events, loading }
+
   useEffect(() => {
     let cancelled = false;
     setLoading(true);
@@ -43,7 +46,22 @@ export default function Appointments() {
     };
   }, [status, version]);
 
-  const reload = () => setVersion((v) => v + 1);
+  const reload = () => {
+    setHistory(null);
+    setVersion((v) => v + 1);
+  };
+
+  const toggleHistory = async (apt) => {
+    if (history?.id === apt.id) return setHistory(null);
+    setHistory({ id: apt.id, events: [], loading: true });
+    try {
+      const events = await getAppointmentEvents(apt.id);
+      setHistory({ id: apt.id, events, loading: false });
+    } catch (e) {
+      setError(toUserMessage(e));
+      setHistory(null);
+    }
+  };
 
   const openReschedule = async (apt) => {
     setResched(apt);
@@ -133,12 +151,19 @@ export default function Appointments() {
                 <tr><td colSpan={5} className="p-6 text-brand-muted">No appointments found.</td></tr>
               )}
               {!loading && rows.map((apt) => (
-                <tr key={apt.id} className="border-b border-brand-blood/10 hover:bg-brand-black/30 transition-colors">
+                <Fragment key={apt.id}>
+                <tr className="border-b border-brand-blood/10 hover:bg-brand-black/30 transition-colors">
                   <td className="p-6 text-brand-cream tracking-wide">
                     {apt.guest_name}
                     <div className="text-xs text-brand-muted">{apt.guest_phone}</div>
                     {apt.guest_email && <div className="text-xs text-brand-muted">{apt.guest_email}</div>}
                     <div className="text-[10px] tracking-widest text-brand-muted/70 mt-1">Ref {apt.reference_code}</div>
+                    {apt.notes && (
+                      <div className="mt-2 max-w-xs whitespace-pre-wrap break-words border-l-2 border-brand-gold/50 pl-3 text-xs text-brand-muted">
+                        <span className="block text-[10px] uppercase tracking-widest text-brand-gold">Customer notes</span>
+                        {apt.notes}
+                      </div>
+                    )}
                   </td>
                   <td className="p-6 text-brand-muted">{apt.services?.name ?? '—'}</td>
                   <td className="p-6 text-brand-muted">
@@ -161,9 +186,36 @@ export default function Appointments() {
                           {label}
                         </button>
                       ))}
+                      <button
+                        onClick={() => toggleHistory(apt)}
+                        className="text-xs uppercase tracking-widest text-brand-muted/70 hover:text-brand-cream transition-colors"
+                      >
+                        {history?.id === apt.id ? 'Hide history' : 'History'}
+                      </button>
                     </div>
                   </td>
                 </tr>
+                {history?.id === apt.id && (
+                  <tr className="border-b border-brand-blood/10 bg-brand-black/40">
+                    <td colSpan={5} className="px-6 py-4 text-xs text-brand-muted">
+                      {history.loading && 'Loading history…'}
+                      {!history.loading && history.events.length === 0 && 'No history recorded.'}
+                      <ul className="space-y-1">
+                        {history.events.map((ev) => (
+                          <li key={ev.id}>
+                            <span className="text-brand-cream">{formatManila(ev.created_at)}</span>
+                            <span className="mx-2 text-brand-blood">|</span>
+                            {ev.old_status && ev.old_status !== ev.new_status
+                              ? `${STATUS_LABEL[ev.old_status] ?? ev.old_status} → ${STATUS_LABEL[ev.new_status] ?? ev.new_status}`
+                              : STATUS_LABEL[ev.new_status] ?? ev.new_status}
+                            {ev.note ? ` · ${ev.note}` : ''}
+                          </li>
+                        ))}
+                      </ul>
+                    </td>
+                  </tr>
+                )}
+                </Fragment>
               ))}
             </tbody>
           </table>
@@ -171,11 +223,11 @@ export default function Appointments() {
       </div>
 
       {resched && (
-        <div className="fixed inset-0 z-50 bg-black/70 flex items-center justify-center p-4" onClick={() => setResched(null)}>
-          <div
-            className="w-full max-w-md max-h-[80vh] overflow-y-auto bg-brand-dark border border-brand-blood/30 p-8"
-            onClick={(e) => e.stopPropagation()}
-          >
+        <div
+          className="fixed inset-0 z-50 bg-black/70 flex items-center justify-center p-4"
+          onMouseDown={(e) => e.target === e.currentTarget && setResched(null)}
+        >
+          <div className="w-full max-w-md max-h-[80vh] overflow-y-auto bg-brand-dark border border-brand-blood/30 p-8">
             <h3 className="text-2xl font-serif text-brand-cream mb-1">Reschedule</h3>
             <p className="text-xs text-brand-muted mb-6">
               {resched.guest_name}: {resched.services?.name}. Pick a new open slot.

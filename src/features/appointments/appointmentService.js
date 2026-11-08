@@ -11,6 +11,19 @@ function toServiceError(error, message) {
   return wrapped;
 }
 
+// Supabase returns at most 1000 rows per request. `build()` must return a FRESH query each call
+// (with a stable order); this walks it in pages so long lists are never silently cut off.
+const PAGE_SIZE = 1000;
+async function fetchAll(build) {
+  const all = [];
+  for (let from = 0; ; from += PAGE_SIZE) {
+    const { data, error } = await build().range(from, from + PAGE_SIZE - 1);
+    if (error) throw error;
+    all.push(...data);
+    if (data.length < PAGE_SIZE) return all;
+  }
+}
+
 /* ---------------- public (guests; no account needed) ---------------- */
 
 export async function listServices() {
@@ -82,16 +95,17 @@ export async function cancelBooking({ reference, phone }) {
 /* ---------------- admin ---------------- */
 
 export async function listAllAppointments({ status } = {}) {
-  let q = supabase
-    .from("appointments")
-    .select(
-      "id, status, notes, created_at, reference_code, guest_name, guest_phone, guest_email, services(name, price), availability_slots(starts_at, ends_at)"
-    )
-    .order("created_at", { ascending: false });
-  if (status) q = q.eq("status", status);
-  const { data, error } = await q;
-  if (error) throw error;
-  return data;
+  return fetchAll(() => {
+    let q = supabase
+      .from("appointments")
+      .select(
+        "id, status, notes, created_at, reference_code, guest_name, guest_phone, guest_email, services(name, price), availability_slots(starts_at, ends_at)"
+      )
+      .order("created_at", { ascending: false })
+      .order("id");
+    if (status) q = q.eq("status", status);
+    return q;
+  });
 }
 
 // action: 'approve' | 'reject' | 'reschedule' | 'complete' | 'cancel' | 'no_show'
@@ -118,14 +132,30 @@ export async function getAppointmentEvents(appointmentId) {
 /* ---------------- admin: schedule management ---------------- */
 
 export async function listSlots(from, to) {
-  const { data, error } = await supabase
-    .from("availability_slots")
-    .select("*")
-    .gte("starts_at", new Date(from).toISOString())
-    .lt("starts_at", new Date(to).toISOString())
-    .order("starts_at");
-  if (error) throw error;
-  return data;
+  return fetchAll(() =>
+    supabase
+      .from("availability_slots")
+      .select("*")
+      .gte("starts_at", new Date(from).toISOString())
+      .lt("starts_at", new Date(to).toISOString())
+      .order("starts_at")
+  );
+}
+
+// PENDING/APPROVED bookings that sit on the given slots (used to warn before blocking a date).
+export async function listActiveBookingsOnSlots(slotIds) {
+  if (!slotIds.length) return [];
+  const rows = [];
+  for (let i = 0; i < slotIds.length; i += 50) {
+    const { data, error } = await supabase
+      .from("appointments")
+      .select("id, status, guest_name, availability_slots(starts_at)")
+      .in("slot_id", slotIds.slice(i, i + 50))
+      .in("status", ["PENDING", "APPROVED"]);
+    if (error) throw error;
+    rows.push(...data);
+  }
+  return rows;
 }
 
 export async function createSlot({ startsAt, endsAt, capacity = 1 }) {
@@ -177,11 +207,13 @@ export async function listPiercingTypes() {
 // The name and email shown are from their most recent booking.
 // visits = COMPLETED appointments; bookings = every request they have made.
 export async function listCustomers() {
-  const { data, error } = await supabase
-    .from("appointments")
-    .select("status, created_at, guest_name, guest_phone, guest_email, availability_slots(starts_at)")
-    .order("created_at", { ascending: false });
-  if (error) throw error;
+  const data = await fetchAll(() =>
+    supabase
+      .from("appointments")
+      .select("status, created_at, guest_name, guest_phone, guest_email, availability_slots(starts_at)")
+      .order("created_at", { ascending: false })
+      .order("id")
+  );
 
   const one = (v) => (Array.isArray(v) ? v[0] : v);
   const clients = new Map(); // phone -> client (rows arrive newest first)

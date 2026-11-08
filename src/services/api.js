@@ -4,7 +4,9 @@
 export function toUserMessage(error) {
   if (!error) return "";
   const m = error.message || "";
-  if (error.code === "23505") return "You already have a request for this time slot.";
+  if (error.code === "23505" && m.includes("Duplicate request"))
+    return "This phone number already has a request for that time slot.";
+  if (error.code === "23505") return "That record already exists.";
   if (m.includes("Slot is full")) return "Sorry, that time slot was just taken. Please pick another.";
   if (m.includes("Slot not available") || m.includes("New slot not available"))
     return "That time slot is no longer available.";
@@ -23,7 +25,6 @@ export function toUserMessage(error) {
   if (m.includes("Admins only")) return "You do not have permission to do that.";
   if (m.includes("Invalid status change")) return "That change isn't allowed for this appointment's current status.";
   if (m.includes("Invalid login credentials")) return "Incorrect email or password.";
-  if (m.includes("already registered")) return "An account with this email already exists.";
   if (m.includes("permission denied") || m.includes("row-level security"))
     return "You do not have permission to do that.";
   return m || "Something went wrong. Please try again.";

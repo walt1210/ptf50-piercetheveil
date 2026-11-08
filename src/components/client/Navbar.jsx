@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import logo from "../../assets/PTV-logo.png";
+import logo from "../../assets/PTV-logo.webp";
 
 const links = [
   { label: "Home", href: "/#home" },

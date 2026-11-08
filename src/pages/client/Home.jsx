@@ -4,7 +4,7 @@ import GallerySection from "../../components/client/GallerySection";
 import InstagramSection from "../../components/client/InstagramSection";
 import { Link } from "react-router-dom";
 import ServicesGuide from "../../components/client/ServicesGuide";
-import logo from "../../assets/PTV-logo.png";
+import logo from "../../assets/PTV-logo.webp";
 
 function Sigil({ className = "" }) {
   return (

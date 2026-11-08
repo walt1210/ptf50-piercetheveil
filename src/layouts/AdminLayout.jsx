@@ -1,10 +1,28 @@
-import { Outlet, Link, useLocation } from 'react-router-dom';
+import { Outlet, Link, useLocation, useNavigate } from 'react-router-dom';
 import { useState } from 'react';
+import { signOut } from '../features/authentication/authService';
+import { toUserMessage } from '../services/api';
 import { LayoutDashboard, CalendarDays, Clock, Scissors, Gem, Users, LogOut, Menu, X } from 'lucide-react';
 
 export default function AdminLayout() {
   const location = useLocation();
+  const navigate = useNavigate();
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const [signingOut, setSigningOut] = useState(false);
+  const [signOutError, setSignOutError] = useState('');
+
+  const handleSignOut = async () => {
+    setSignOutError('');
+    setSigningOut(true);
+    try {
+      await signOut();
+      navigate('/admin/login', { replace: true });
+    } catch (e) {
+      setSignOutError(toUserMessage(e));
+    } finally {
+      setSigningOut(false);
+    }
+  };
 
   const navItems = [
     { name: 'Dashboard', path: '/admin', icon: LayoutDashboard },
@@ -60,10 +78,16 @@ export default function AdminLayout() {
         </nav>
 
         <div className="p-6 border-t border-brand-blood/30">
-          <button className="flex items-center gap-4 px-4 py-2 w-full text-brand-muted hover:text-brand-cream transition-colors text-sm uppercase tracking-wide font-light">
+          <button
+            type="button"
+            onClick={handleSignOut}
+            disabled={signingOut}
+            className="flex items-center gap-4 px-4 py-2 w-full text-brand-muted hover:text-brand-cream transition-colors text-sm uppercase tracking-wide font-light disabled:opacity-50"
+          >
             <LogOut size={18} strokeWidth={1.5} />
-            Sign Out
+            {signingOut ? 'Signing out…' : 'Sign Out'}
           </button>
+          {signOutError && <p role="alert" className="mt-2 px-4 text-xs text-red-400">{signOutError}</p>}
         </div>
       </aside>
 

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { Plus, Power, X } from 'lucide-react';
+import { Edit2, Plus, Power, X } from 'lucide-react';
 import {
   listAllServices,
   createService,
@@ -19,6 +19,7 @@ export default function ServicesManagement() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [showForm, setShowForm] = useState(false);
+  const [editingId, setEditingId] = useState(null); // null = creating a new service
   const [form, setForm] = useState(EMPTY_FORM);
   const [saving, setSaving] = useState(false);
   const [busyId, setBusyId] = useState(null);
@@ -46,7 +47,34 @@ export default function ServicesManagement() {
 
   const typeName = (id) => types.find((t) => t.id === id)?.name;
 
-  const handleCreate = async (e) => {
+  const openNew = () => {
+    if (showForm && !editingId) return setShowForm(false);
+    setEditingId(null);
+    setForm(EMPTY_FORM);
+    setError('');
+    setShowForm(true);
+  };
+
+  const openEdit = (svc) => {
+    setEditingId(svc.id);
+    setForm({
+      name: svc.name ?? '',
+      duration: String(svc.duration_minutes ?? ''),
+      price: String(svc.price ?? ''),
+      typeId: svc.piercing_type_id ?? '',
+    });
+    setError('');
+    setShowForm(true);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const closeForm = () => {
+    setShowForm(false);
+    setEditingId(null);
+    setForm(EMPTY_FORM);
+  };
+
+  const handleSave = async (e) => {
     e.preventDefault();
     setError('');
     const price = Number(form.price);
@@ -55,18 +83,23 @@ export default function ServicesManagement() {
     if (!Number.isFinite(price) || price < 0 || form.price === '') return setError('Enter a valid price in PHP.');
     if (!Number.isInteger(duration) || duration <= 0) return setError('Duration must be a whole number of minutes.');
 
+    const fields = {
+      name: form.name.trim(),
+      price,
+      duration_minutes: duration,
+      piercing_type_id: form.typeId || null,
+    };
+
     setSaving(true);
     try {
-      const created = await createService({
-        name: form.name.trim(),
-        price,
-        duration_minutes: duration,
-        piercing_type_id: form.typeId || null,
-        is_active: true,
-      });
-      setServices((prev) => [...prev, created].sort((a, b) => a.name.localeCompare(b.name)));
-      setForm(EMPTY_FORM);
-      setShowForm(false);
+      if (editingId) {
+        const updated = await updateService(editingId, fields);
+        setServices((prev) => prev.map((s) => (s.id === editingId ? updated : s)).sort((a, b) => a.name.localeCompare(b.name)));
+      } else {
+        const created = await createService({ ...fields, is_active: true });
+        setServices((prev) => [...prev, created].sort((a, b) => a.name.localeCompare(b.name)));
+      }
+      closeForm();
     } catch (err) {
       setError(toUserMessage(err));
     } finally {
@@ -95,7 +128,7 @@ export default function ServicesManagement() {
           <p className="text-brand-muted mt-2 font-light tracking-wide text-sm">Configure available piercings, durations, and pricing.</p>
         </div>
         <button
-          onClick={() => setShowForm((v) => !v)}
+          onClick={showForm && editingId ? closeForm : openNew}
           className="flex items-center gap-2 border border-brand-cream text-brand-cream px-6 py-2 text-xs uppercase tracking-widest hover:bg-brand-cream hover:text-brand-black transition-all shrink-0"
         >
           {showForm ? <X size={14} /> : <Plus size={14} />} {showForm ? 'Cancel' : 'New Service'}
@@ -109,7 +142,8 @@ export default function ServicesManagement() {
       )}
 
       {showForm && (
-        <form onSubmit={handleCreate} className="bg-brand-dark border border-brand-blood/20 p-6 grid grid-cols-1 md:grid-cols-2 gap-4">
+        <form onSubmit={handleSave} className="bg-brand-dark border border-brand-blood/20 p-6 grid grid-cols-1 md:grid-cols-2 gap-4">
+          <h3 className="md:col-span-2 text-xl font-serif text-brand-cream">{editingId ? 'Edit service' : 'New service'}</h3>
           <label className="block md:col-span-2">
             <span className="text-[10px] text-brand-muted uppercase tracking-widest">Name</span>
             <input
@@ -164,7 +198,7 @@ export default function ServicesManagement() {
               disabled={saving}
               className="w-full border border-brand-cream text-brand-cream py-3 text-xs uppercase tracking-widest hover:bg-brand-cream hover:text-brand-black transition-all disabled:opacity-50"
             >
-              {saving ? 'Saving...' : 'Save service'}
+              {saving ? 'Saving...' : editingId ? 'Save changes' : 'Save service'}
             </button>
           </div>
         </form>
@@ -192,6 +226,14 @@ export default function ServicesManagement() {
                   )}
                 </p>
               </div>
+              <div className="flex items-center gap-3 shrink-0">
+              <button
+                title="Edit"
+                onClick={() => openEdit(svc)}
+                className="p-2 text-brand-muted hover:text-brand-cream transition-colors"
+              >
+                <Edit2 size={14} />
+              </button>
               <button
                 onClick={() => handleToggle(svc)}
                 disabled={busyId === svc.id}
@@ -204,6 +246,7 @@ export default function ServicesManagement() {
                 <Power size={14} />
                 {svc.is_active ? 'Deactivate' : 'Activate'}
               </button>
+              </div>
             </div>
           ))}
         </div>

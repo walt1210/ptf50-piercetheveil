@@ -26,7 +26,12 @@ export default function Dashboard() {
   }, [version]);
 
   const startOf = (r) => (r.availability_slots ? new Date(r.availability_slots.starts_at).getTime() : 0);
-  const pending = rows.filter((r) => r.status === 'PENDING').sort((a, b) => startOf(a) - startOf(b));
+  const nowMs = Date.now();
+  const isPast = (r) => startOf(r) > 0 && startOf(r) < nowMs;
+  // upcoming requests first (soonest first); requests whose time already passed go to the bottom
+  const pending = rows
+    .filter((r) => r.status === 'PENDING')
+    .sort((a, b) => Number(isPast(a)) - Number(isPast(b)) || startOf(a) - startOf(b));
 
   const today = manilaDay(Date.now());
   const weekStart = manilaDay(Date.now() - 6 * 86400000);
@@ -107,6 +112,7 @@ export default function Dashboard() {
                     <td className="p-6 text-brand-cream tracking-wide">
                       {req.guest_name}
                       <div className="text-xs text-brand-muted">{req.guest_phone}</div>
+                      {req.notes && <div className="mt-1 max-w-xs truncate text-xs text-brand-gold" title={req.notes}>Note: {req.notes}</div>}
                     </td>
                     <td className="p-6 text-brand-muted">{req.services?.name ?? '—'}</td>
                     <td className="p-6 text-brand-muted">
@@ -115,10 +121,12 @@ export default function Dashboard() {
                           {formatManila(start, { dateStyle: 'medium' })}
                           <span className="text-brand-blood mx-2">|</span>
                           {formatManila(start, { timeStyle: 'short' })}
+                          {isPast(req) && <span className="ml-3 text-[10px] uppercase tracking-widest text-brand-blood">Past</span>}
                         </>
                       ) : '—'}
                     </td>
-                    <td className="p-6 flex justify-center gap-4">
+                    <td className="p-6">
+                     <div className="flex justify-center gap-4">
                       <button
                         disabled={busyId === req.id}
                         onClick={() => handleVerdict(req.id, 'approve')}
@@ -133,6 +141,7 @@ export default function Dashboard() {
                       >
                         <X size={14} /> Reject
                       </button>
+                     </div>
                     </td>
                   </tr>
                 );

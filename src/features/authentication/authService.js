@@ -14,18 +14,6 @@ export async function signOut() {
   if (error) throw error;
 }
 
-export async function sendPasswordReset(email) {
-  const { error } = await supabase.auth.resetPasswordForEmail(email, {
-    redirectTo: `${window.location.origin}/reset-password`,
-  });
-  if (error) throw error;
-}
-
-export async function updatePassword(newPassword) {
-  const { error } = await supabase.auth.updateUser({ password: newPassword });
-  if (error) throw error;
-}
-
 export async function getProfile(userId) {
   const { data, error } = await supabase
     .from("profiles")

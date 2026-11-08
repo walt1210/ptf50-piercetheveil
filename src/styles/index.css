@@ -4032,3 +4032,6 @@ body.nav-open {
     padding-top: 128px;
   }
 }
+
+/* dark native date/time pickers in the admin portal */
+.color-scheme-dark { color-scheme: dark; }

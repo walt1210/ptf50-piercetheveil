@@ -65,22 +65,32 @@ export async function updateJewelry(id, changes) {
 export const setJewelryActive = (id, isActive) => updateJewelry(id, { is_active: isActive });
 
 // Replace the approved placements for one item.
+// Safe order: add/keep the wanted ones FIRST, then remove the rest. If something fails halfway,
+// the item keeps its placements instead of ending up with none (the recommender filters on them).
 export async function setCompatibility(jewelryId, piercingTypeIds) {
-  const { error: delErr } = await supabase.from("jewelry_compatibility").delete().eq("jewelry_id", jewelryId);
+  if (piercingTypeIds.length) {
+    const rows = piercingTypeIds.map((piercing_type_id) => ({
+      jewelry_id: jewelryId,
+      piercing_type_id,
+      approved: true,
+    }));
+    const { error } = await supabase
+      .from("jewelry_compatibility")
+      .upsert(rows, { onConflict: "jewelry_id,piercing_type_id" });
+    if (error) throw error;
+  }
+  let del = supabase.from("jewelry_compatibility").delete().eq("jewelry_id", jewelryId);
+  if (piercingTypeIds.length) del = del.not("piercing_type_id", "in", `(${piercingTypeIds.join(",")})`);
+  const { error: delErr } = await del;
   if (delErr) throw delErr;
-  if (!piercingTypeIds.length) return;
-  const rows = piercingTypeIds.map((piercing_type_id) => ({
-    jewelry_id: jewelryId,
-    piercing_type_id,
-    approved: true,
-  }));
-  const { error } = await supabase.from("jewelry_compatibility").insert(rows);
-  if (error) throw error;
 }
 
 // Returns the public URL to store in jewelry.image_url
 export async function uploadJewelryImage(file) {
-  const ext = (file.name.split(".").pop() || "jpg").toLowerCase();
+  // pick the extension from the verified MIME type, not the filename (names may have none)
+  const EXT = { "image/jpeg": "jpg", "image/png": "png", "image/webp": "webp", "image/gif": "gif" };
+  const ext = EXT[file.type];
+  if (!ext) throw new Error("Please upload a JPG, PNG, WebP or GIF image.");
   const path = `${crypto.randomUUID()}.${ext}`;
   const { error } = await supabase.storage.from(BUCKET).upload(path, file, { contentType: file.type });
   if (error) throw error;

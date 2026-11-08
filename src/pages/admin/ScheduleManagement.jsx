@@ -3,6 +3,7 @@ import { Clock, CalendarX } from 'lucide-react';
 import {
   listSlots,
   createSlot,
+  listActiveBookingsOnSlots,
   setSlotBlocked,
 } from '../../features/appointments/appointmentService';
 import { toUserMessage } from '../../services/api';
@@ -101,8 +102,25 @@ export default function ScheduleManagement() {
     }
     setBusy(true);
     try {
+      // Blocking does NOT cancel bookings that already exist, so tell the admin before doing it.
+      if (blocked) {
+        const booked = await listActiveBookingsOnSlots(targets.map((s) => s.id));
+        if (booked.length > 0) {
+          const pendingCount = booked.filter((b) => b.status === 'PENDING').length;
+          const approvedCount = booked.length - pendingCount;
+          const ok = window.confirm(
+            `${fmtDateKey(key)} already has ${booked.length} active booking${booked.length === 1 ? '' : 's'} ` +
+              `(${approvedCount} approved, ${pendingCount} pending). Blocking the date will NOT cancel them. ` +
+              `You will need to reschedule or cancel them in Appointments.\n\nBlock the date anyway?`
+          );
+          if (!ok) return;
+        }
+      }
       await Promise.all(targets.map((s) => setSlotBlocked(s.id, blocked)));
-      setNotice(`${blocked ? 'Blocked' : 'Unblocked'} ${targets.length} slot${targets.length === 1 ? '' : 's'} on ${fmtDateKey(key)}.`);
+      setNotice(
+        `${blocked ? 'Blocked' : 'Unblocked'} ${targets.length} slot${targets.length === 1 ? '' : 's'} on ${fmtDateKey(key)}.` +
+          (blocked ? ' Existing bookings on that date were not changed.' : '')
+      );
       await load();
     } catch (e) {
       setError(toUserMessage(e));
@@ -133,12 +151,26 @@ export default function ScheduleManagement() {
       return setError('End time must be after the start time.');
     }
 
-    const existing = new Set(slots.map((s) => new Date(s.starts_at).getTime()));
+    if (end.getTime() <= Date.now()) return setError('That time has already passed. Pick a future date.');
+
+    // skip any new slot that overlaps an existing one (not just an identical start time)
+    const existing = slots.map((s) => [new Date(s.starts_at).getTime(), new Date(s.ends_at).getTime()]);
+    const overlaps = (a, b) => existing.some(([es, ee]) => a < ee && b > es);
     const planned = [];
+    let skipped = 0;
     for (let t = start.getTime(); t + length * 60000 <= end.getTime(); t += length * 60000) {
-      if (!existing.has(t)) planned.push({ startsAt: new Date(t), endsAt: new Date(t + length * 60000), capacity });
+      const tEnd = t + length * 60000;
+      if (t <= Date.now()) continue; // never create slots in the past
+      if (overlaps(t, tEnd)) skipped += 1;
+      else planned.push({ startsAt: new Date(t), endsAt: new Date(tEnd), capacity });
     }
-    if (planned.length === 0) return setError('No new slots to add. They may already exist, or the window is shorter than one slot.');
+    if (planned.length === 0) {
+      return setError(
+        skipped > 0
+          ? 'No new slots to add: every slot in that window overlaps an existing one.'
+          : 'No new slots to add. The window is shorter than one slot, or already in the past.'
+      );
+    }
     if (planned.length > MAX_NEW_SLOTS) return setError(`That would create ${planned.length} slots. Add at most ${MAX_NEW_SLOTS} at a time.`);
 
     setBusy(true);
@@ -148,7 +180,10 @@ export default function ScheduleManagement() {
         await createSlot(p);
         created += 1;
       }
-      setNotice(`Added ${created} slot${created === 1 ? '' : 's'} on ${fmtDateKey(add.date)}.`);
+      setNotice(
+        `Added ${created} slot${created === 1 ? '' : 's'} on ${fmtDateKey(add.date)}.` +
+          (skipped > 0 ? ` Skipped ${skipped} that overlapped existing slots.` : '')
+      );
       setShowAdd(false);
     } catch (e) {
       setError(`Added ${created} of ${planned.length} slots. ${toUserMessage(e)}`);
