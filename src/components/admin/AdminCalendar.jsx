@@ -23,7 +23,7 @@ export const TONE_LEGEND = [
   ['none', 'No slots'],
 ];
 
-export default function AdminCalendar({ monthKey, onMonthChange, selectedKey, onSelect, getDay, minMonthKey, maxMonthKey }) {
+export default function AdminCalendar({ monthKey, onMonthChange, selectedKey, onSelect, getDay, minMonthKey, maxMonthKey, legend = TONE_LEGEND, pendingLegend = 'Pending requests' }) {
   const month = monthKeyOf(monthKey);
   const today = todayKey();
   const days = monthGrid(month);
@@ -104,15 +104,17 @@ export default function AdminCalendar({ monthKey, onMonthChange, selectedKey, on
       </div>
 
       <ul className="mt-4 flex flex-wrap gap-x-5 gap-y-2 text-[11px] text-brand-muted">
-        {TONE_LEGEND.map(([tone, text]) => (
+        {legend.map(([tone, text]) => (
           <li key={tone} className="flex items-center gap-2">
             <i className={`inline-block w-3 h-3 border ${TONE_STYLE[tone].split(' ').filter((c) => c.startsWith('border-') || c.startsWith('bg-')).join(' ')}`} />
             {text}
           </li>
         ))}
-        <li className="flex items-center gap-2">
-          <i className="inline-block w-3 h-3 rounded-full bg-brand-gold" /> Pending requests
-        </li>
+        {pendingLegend && (
+          <li className="flex items-center gap-2">
+            <i className="inline-block w-3 h-3 rounded-full bg-brand-gold" /> {pendingLegend}
+          </li>
+        )}
       </ul>
     </div>
   );

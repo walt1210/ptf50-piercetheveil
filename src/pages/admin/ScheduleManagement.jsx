@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import AdminCalendar from '../../components/admin/AdminCalendar';
+import { useConfirm } from '../../components/admin/ConfirmDialog';
 import DayPanel from '../../components/admin/DayPanel';
 import WeeklyPlanner from '../../components/admin/WeeklyPlanner';
 import { createSlots, listBookingsInRange, listSlots, setSlotsBlocked } from '../../features/appointments/appointmentService';
@@ -30,6 +31,7 @@ export default function ScheduleManagement() {
   const [notice, setNotice] = useState('');
   const [busy, setBusy] = useState(false);
   const [showPlanner, setShowPlanner] = useState(false);
+  const [confirm, confirmDialog] = useConfirm();
   const panelRef = useRef(null);
   const loadId = useRef(0);
 
@@ -102,19 +104,24 @@ export default function ScheduleManagement() {
 
   // Blocking never cancels bookings, so warn first when any would be affected.
   const confirmBlock = (what, affected) => {
-    if (affected.length === 0) return true;
+    if (affected.length === 0) return Promise.resolve(true);
     const pending = affected.filter((b) => b.status === 'PENDING').length;
-    return window.confirm(
-      `${what} already has ${plural(affected.length, 'active booking')} (${affected.length - pending} approved, ${pending} pending). ` +
-        'Blocking does NOT cancel them. You will need to reschedule or cancel them in Appointments.\n\nBlock anyway?'
-    );
+    return confirm({
+      title: 'Block anyway?',
+      message:
+        `${what} already has ${plural(affected.length, 'active booking')} (${affected.length - pending} approved, ${pending} pending).\n\n` +
+        'Blocking does NOT cancel them. You will need to reschedule or cancel them in Appointments.',
+      confirmLabel: 'Block anyway',
+      cancelLabel: 'Go back',
+      tone: 'danger',
+    });
   };
 
   const runBlock = async (targets, blocked, what) => {
     setError('');
     setNotice('');
     if (targets.length === 0) return;
-    if (blocked && !confirmBlock(what, targets.flatMap((s) => bookingsBySlot.get(s.id) ?? []))) return;
+    if (blocked && !(await confirmBlock(what, targets.flatMap((s) => bookingsBySlot.get(s.id) ?? [])))) return;
     setBusy(true);
     try {
       await setSlotsBlocked(targets.map((s) => s.id), blocked);
@@ -234,6 +241,7 @@ export default function ScheduleManagement() {
           />
         </div>
       </div>
+      {confirmDialog}
     </div>
   );
 }

@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Plus, Edit2, Eye, EyeOff } from 'lucide-react';
+import { useConfirm } from '../../components/admin/ConfirmDialog';
 import { prepareJewelryImage } from '../../features/jewelry/imageCompress';
 import {
   createJewelry,
@@ -214,6 +215,7 @@ function JewelryForm({ item, types, onClose, onSaved }) {
   const [preview, setPreview] = useState(item?.image_url ?? null);
   const [saving, setSaving] = useState(false);
   const [processing, setProcessing] = useState(false);
+  const [confirm, confirmDialog] = useConfirm();
   const [err, setErr] = useState('');
 
   useEffect(() => {
@@ -291,13 +293,14 @@ function JewelryForm({ item, types, onClose, onSaved }) {
   };
 
   return (
+    <>
     <div
       className="fixed inset-0 z-50 bg-black/70 flex items-center justify-center p-4"
-      onMouseDown={(e) => {
+      onMouseDown={async (e) => {
         // close only on a real click on the dark backdrop, and ask first if the form has unsaved typing
         if (e.target !== e.currentTarget) return;
         const dirty = JSON.stringify(form) !== JSON.stringify(initialForm) || file;
-        if (!dirty || window.confirm('Discard your changes?')) onClose();
+        if (!dirty || (await confirm({ title: 'Discard your changes?', message: 'What you typed on this form will be lost.', confirmLabel: 'Discard', cancelLabel: 'Keep editing', tone: 'danger' }))) onClose();
       }}
     >
       <form
@@ -407,5 +410,7 @@ function JewelryForm({ item, types, onClose, onSaved }) {
         </div>
       </form>
     </div>
+    {confirmDialog}
+    </>
   );
 }

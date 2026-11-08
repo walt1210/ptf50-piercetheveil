@@ -99,7 +99,7 @@ export async function listAllAppointments({ status } = {}) {
     let q = supabase
       .from("appointments")
       .select(
-        "id, status, notes, created_at, reference_code, guest_name, guest_phone, guest_email, services(name, price), availability_slots(starts_at, ends_at)"
+        "id, status, notes, created_at, reference_code, slot_id, guest_name, guest_phone, guest_email, services(name, price), availability_slots(starts_at, ends_at)"
       )
       .order("created_at", { ascending: false })
       .order("id");
@@ -277,12 +277,14 @@ export async function listCustomers() {
         email: a.guest_email,
         bookings: 0,
         visits: 0,
+        noShows: 0,
         lastVisit: null,
       };
       clients.set(a.guest_phone, c);
     }
     if (!c.email && a.guest_email) c.email = a.guest_email;
     c.bookings += 1;
+    if (a.status === "NO_SHOW") c.noShows += 1;
     if (a.status === "COMPLETED") {
       c.visits += 1;
       const startsAt = one(a.availability_slots)?.starts_at ?? null;

@@ -47,6 +47,7 @@ export const formatTime = (value) => formatMinutes(minutesOfDay(value));
 const keyLabel = (key, opts) => utcDate(key).toLocaleDateString("en-US", { timeZone: "UTC", ...opts });
 export const formatKeyLong = (key) => keyLabel(key, { weekday: "long", month: "long", day: "numeric", year: "numeric" });
 export const formatKeyShort = (key) => keyLabel(key, { month: "short", day: "numeric", year: "numeric" });
+export const formatKeyDay = (key) => keyLabel(key, { weekday: "short", month: "short", day: "numeric" });
 export const formatMonth = (monthKey) => keyLabel(monthKey, { month: "long", year: "numeric" });
 
 export const WEEKDAY_SHORT = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];

@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Search, Phone, Mail } from 'lucide-react';
+import { ContactLinks } from '../../components/admin/AppointmentParts';
 import { listCustomers } from '../../features/appointments/appointmentService';
 import { toUserMessage } from '../../services/api';
 
@@ -95,6 +96,18 @@ export default function CustomerManagement() {
                     <Mail size={14} className="text-brand-blood" />
                     {client.email}
                   </div>
+                )}
+              </div>
+
+              <div className="mb-6 flex flex-wrap items-center gap-3">
+                <ContactLinks phone={client.phone} name={client.full_name} />
+                {client.noShows > 0 && (
+                  <span
+                    className={`text-[10px] uppercase tracking-widest border px-2 py-1 ${client.noShows >= 2 ? 'text-orange-400 border-orange-400/40' : 'text-brand-muted border-brand-muted/30'}`}
+                    title="Appointments marked No-show"
+                  >
+                    {client.noShows} no-show{client.noShows === 1 ? '' : 's'}
+                  </span>
                 )}
               </div>
 

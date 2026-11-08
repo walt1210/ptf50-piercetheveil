@@ -15,6 +15,16 @@
   hard-coded Monday block removed (open slots decide), "preview" wording removed, Pop-up option disabled until POPUP_AVAILABLE=true in
   Appointment.jsx, calendar jumps to the first day with open times. Jewelry photos are resized/converted in the browser (any phone photo
   works). tailwind brand-gold token fixed (class is now text-brand-gold; it previously generated no CSS).
+- ROUND 2 UI/UX (2026-11-08, build OK; 21 simulated-DOM tests passed for Appointments, Dashboard, Schedule and the booking form; temporary test files were NOT kept; NOT yet clicked through in a real browser/phone):
+  Appointments page: opens on "Needs action" (PENDING + APPROVED visits whose time has passed) with tabs + counts (Needs action / Upcoming /
+  History / All), search (name, phone in any format, reference, email, service, notes), List/Calendar toggle (month calendar of pending +
+  approved bookings, click a day for its agenda), tap-to-call/text, one main button per row + a "More" menu (reschedule, cancel, no-show,
+  history), cards on phones / table on larger screens, silent refresh every 60 s. Reschedule now uses a calendar: pick a day, pick a time,
+  confirm. Styled confirm dialogs replace the browser popups on admin pages (reject, cancel, no-show, block date, discard changes).
+  Dashboard: clickable stat cards (open the matching Appointments tab/calendar), "Today and the next 7 days" agenda of approved bookings,
+  approvals with call/text and notes, callout for past-time approved visits, silent refresh. Clients: call/text and no-show count.
+  URLs: /admin/appointments?tab=needs-action|upcoming|history|all and ?view=calendar&day=today|YYYY-MM-DD.
+  NOT built (by request): email notifications / email sending.
 - AUTH: admin only. authService, AuthContext (waits for profile), ProtectedRoute (always /admin/login), admin Login + Sign Out
 - ADMIN pages, all on real data: Dashboard, Appointments (approve/reject/reschedule/complete/cancel/no-show),
   Jewelry Management (CRUD, photo upload, approved placements, hide/show, AI index status),
@@ -48,7 +58,7 @@
 3. Blocking a date/slot only sets is_blocked; it does NOT cancel appointments already booked on those slots (the admin gets a warning with the count and must handle them in Appointments).
 4. There is no operating-hours table: the calendar and "Repeat weekly" create/derive everything from availability_slots.
 7. Same-day booking is blocked on the public page (date <= today); decide if that is intended.
-8. Round 2 (not started): Appointments calendar toggle + Needs-action default + search + "More" menu, tap-to-call, dashboard agenda, mobile cards. Round 3: price guide from DB, AI prompt chips, favicon/Privacy/404/Open Graph, lazy-load admin routes. Email notifications (Resend; owner email works without a domain, customer email needs a verified domain). Age/health rules deliberately NOT added yet.
+8. Round 2 done (see above). Round 3 (not started): price guide from DB, AI prompt chips, favicon/Privacy/404/Open Graph, lazy-load admin routes. Email notifications (Resend; owner email works without a domain, customer email needs a verified domain). Age/health rules deliberately NOT added yet.
 5. npm audit: 4 high, all Node-only deps of the AI library (adm-zip, sharp via onnxruntime-node); not in the browser bundle.
    Revisit mid-Nov: commit first, then `npm audit fix`, re-test. Never use --force.
 
