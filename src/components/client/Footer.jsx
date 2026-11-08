@@ -4,9 +4,9 @@ export default function Footer() {
   return (
     <footer className="site-footer" id="visit">
       <div className="site-footer__brand">
-        <img src={logo} alt="Pierce the Veil logo" />
+        <img src={logo} alt="piercetheveil.ac logo" />
         <div>
-          <p>Pierce the Veil</p>
+          <p>piercetheveil.ac</p>
           <span>Independent piercer and curated jewelry</span>
         </div>
       </div>
@@ -19,7 +19,7 @@ export default function Footer() {
 
       <div className="site-footer__end">
         <a href="#top" onClick={(e) => { e.preventDefault(); window.scrollTo({ top: 0, behavior: "smooth" }); }}>Back to the top ↑</a>
-        <small>© {new Date().getFullYear()} Pierce the Veil</small>
+        <small>© {new Date().getFullYear()} piercetheveil.ac</small>
       </div>
     </footer>
   );

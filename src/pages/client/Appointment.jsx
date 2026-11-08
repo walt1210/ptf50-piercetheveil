@@ -246,7 +246,7 @@ export default function Appointment() {
 
           <aside className="availability-hero__note">
             <span>Good to know</span>
-            <p>Pierce the Veil is an independent mobile and pop-up piercing business—there is no permanent studio location.</p>
+            <p>piercetheveil.ac is an independent mobile and pop-up piercing business—there is no permanent studio location.</p>
           </aside>
         </section>
 

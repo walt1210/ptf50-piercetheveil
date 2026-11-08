@@ -8,7 +8,6 @@ const links = [
   { label: "Services", href: "/#price-guide" },
   { label: "Gallery", href: "/#gallery" },
   { label: "Aftercare", href: "/#care-guide" },
-  { label: "Catalog", to: "/catalog" },
   { label: "AI Stylist", to: "/recommend" },
   { label: "My booking", to: "/booking" },
 ];
@@ -47,12 +46,12 @@ export default function Navbar() {
 
   return (
     <header className={`site-header ${scrolled ? "site-header--scrolled" : ""}`}>
-      <Link className="brand" to="/" aria-label="Pierce the Veil home">
+      <Link className="brand" to="/" aria-label="piercetheveil.ac home">
         <span className="brand__mark">
           <img src={logo} alt="" />
         </span>
         <span className="brand__name">
-          Pierce the Veil
+          piercetheveil.ac
           <small>Angeles City</small>
         </span>
       </Link>

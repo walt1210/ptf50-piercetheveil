@@ -4,6 +4,7 @@ import { usePendingCount } from '../hooks/usePendingCount';
 import { signOut } from '../features/authentication/authService';
 import { toUserMessage } from '../services/api';
 import { LayoutDashboard, CalendarDays, Clock, Scissors, Gem, Users, LogOut, Menu, X } from 'lucide-react';
+import logo from '../assets/PTV-logo.webp';
 
 export default function AdminLayout() {
   const location = useLocation();
@@ -15,9 +16,9 @@ export default function AdminLayout() {
 
   // show waiting requests in the browser tab too, so the shop notices without opening the page
   useEffect(() => {
-    document.title = pending > 0 ? `(${pending}) Admin | Pierce the Veil` : 'Admin | Pierce the Veil';
+    document.title = pending > 0 ? `(${pending}) Admin | piercetheveil.ac` : 'Admin | piercetheveil.ac';
     return () => {
-      document.title = 'Pierce the Veil | Angeles City';
+      document.title = 'piercetheveil.ac | Angeles City';
     };
   }, [pending]);
 
@@ -57,9 +58,16 @@ export default function AdminLayout() {
       <aside className={`fixed inset-y-0 left-0 z-30 flex w-64 max-w-[85vw] flex-col border-r border-brand-blood/30 bg-brand-dark transition-transform duration-300 md:relative md:translate-x-0 ${
         isSidebarOpen ? 'visible translate-x-0' : 'invisible -translate-x-full md:visible'
       }`}>
-        <div className="p-8 border-b border-brand-blood/30 text-center">
-          <h1 className="text-3xl font-serif text-brand-cream tracking-wider">Pierce<br/><span className="italic text-brand-blood">the</span> Veil</h1>
-          <p className="text-[10px] text-brand-muted mt-4 uppercase tracking-[0.3em]">Admin Portal</p>
+        <div className="border-b border-brand-blood/30 px-6 py-7">
+          <div className="brand">
+            <span className="brand__mark shrink-0">
+              <img src={logo} alt="" />
+            </span>
+            <span className="brand__name text-left text-brand-cream">
+              piercetheveil.ac
+              <small>Admin Portal</small>
+            </span>
+          </div>
         </div>
         
         <nav className="flex-1 px-4 py-8 space-y-2 overflow-y-auto">

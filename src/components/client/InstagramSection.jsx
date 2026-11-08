@@ -3,32 +3,32 @@ const instagramUrl = "https://www.instagram.com/piercetheveil.ac/";
 const instagramPosts = [
   {
     src: "/gallery/price-list-ear-piercings.webp",
-    alt: "Pierce the Veil ear piercing price guide",
+    alt: "piercetheveil.ac ear piercing price guide",
     title: "Ear piercings",
   },
   {
     src: "/gallery/price-list-oral-facial-body.webp",
-    alt: "Pierce the Veil oral, facial, and body piercing price guide",
+    alt: "piercetheveil.ac oral, facial, and body piercing price guide",
     title: "More placements",
   },
   {
     src: "/gallery/dos-donts.webp",
-    alt: "Pierce the Veil appointment do's and don'ts",
+    alt: "piercetheveil.ac appointment do's and don'ts",
     title: "Before your visit",
   },
   {
     src: "/gallery/aftercare.webp",
-    alt: "Pierce the Veil piercing aftercare guide",
+    alt: "piercetheveil.ac piercing aftercare guide",
     title: "Aftercare",
   },
   {
     src: "/gallery/healing-process.webp",
-    alt: "Pierce the Veil piercing healing timeline",
+    alt: "piercetheveil.ac piercing healing timeline",
     title: "Healing process",
   },
   {
     src: "/gallery/reminders.webp",
-    alt: "Pierce the Veil piercing reminders",
+    alt: "piercetheveil.ac piercing reminders",
     title: "Reminders",
   },
 ];
@@ -59,7 +59,7 @@ export default function InstagramSection() {
           href={instagramUrl}
           target="_blank"
           rel="noreferrer"
-          aria-label="Open Pierce the Veil on Instagram"
+          aria-label="Open piercetheveil.ac on Instagram"
         >
           <span className="instagram-feed__avatar"><InstagramIcon /></span>
           <span>
@@ -69,7 +69,7 @@ export default function InstagramSection() {
         </a>
       </div>
 
-      <div className="instagram-feed__grid" aria-label="Featured Pierce the Veil posts">
+      <div className="instagram-feed__grid" aria-label="Featured piercetheveil.ac posts">
         {instagramPosts.map((post, index) => (
           <a
             className="instagram-tile"

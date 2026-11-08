@@ -12,3 +12,4 @@ public/ort
 # Vite cache and leftovers
 .vite
 /deps
+*.example

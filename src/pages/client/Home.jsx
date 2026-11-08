@@ -5,6 +5,9 @@ import InstagramSection from "../../components/client/InstagramSection";
 import { Link } from "react-router-dom";
 import ServicesGuide from "../../components/client/ServicesGuide";
 import logo from "../../assets/PTV-logo.webp";
+import jewelryOptions from "../../assets/images/jewelries-ptv.jpg";
+import boothSetup from "../../assets/images/booth-setup.jpg";
+import ptvPiercers from "../../assets/images/ptv-piercers.jpg";
 
 function Sigil({ className = "" }) {
   return (
@@ -31,66 +34,6 @@ function Icon({ type }) {
   return <svg viewBox="0 0 24 24" aria-hidden="true">{paths[type]}</svg>;
 }
 
-const experiences = [
-  {
-    number: "01",
-    icon: "spark",
-    title: "Independent & personal",
-    text: "Pierce the Veil is a small independent piercing business built around personal service, informed choice, and individual style.",
-    href: "#price-guide",
-  },
-  {
-    number: "02",
-    icon: "pin",
-    title: "By appointment, where you are",
-    text: "Select client-address appointments are available around Angeles City, with the location and setup confirmed before booking.",
-    href: "#visit",
-  },
-  {
-    number: "03",
-    icon: "calendar",
-    title: "Pop-ups around Angeles",
-    text: "Occasional booths appear at different events and spots around the city. Dates and locations are announced online.",
-    href: "#instagram",
-  },
-];
-
-const collection = [
-  { label: "The quiet edge", title: "Minimal forms", art: "minimal", note: "Clean lines · subtle shine" },
-  { label: "An everyday ritual", title: "Curated stacks", art: "stack", note: "Layered · considered" },
-  { label: "Made to be seen", title: "Statement pieces", art: "statement", note: "Bold form · fine detail" },
-];
-
-function JewelryArt({ type }) {
-  return (
-    <svg className={`jewelry-art jewelry-art--${type}`} viewBox="0 0 300 260" aria-hidden="true">
-      <circle className="jewelry-art__halo" cx="150" cy="130" r="102" />
-      {type === "minimal" && (
-        <>
-          <circle cx="150" cy="129" r="58" />
-          <circle className="jewelry-art__gem" cx="150" cy="68" r="11" />
-          <path d="M112 175c11 13 24 20 38 20s27-7 38-20" />
-        </>
-      )}
-      {type === "stack" && (
-        <>
-          <path d="M105 73c65 17 80 101 26 136M132 54c67 28 75 121 7 166M162 52c58 43 49 130-19 169" />
-          <circle className="jewelry-art__gem" cx="108" cy="74" r="10" />
-          <circle className="jewelry-art__gem" cx="133" cy="55" r="8" />
-          <circle className="jewelry-art__gem" cx="162" cy="52" r="6" />
-        </>
-      )}
-      {type === "statement" && (
-        <>
-          <path d="m150 52 49 60-49 98-49-98 49-60Z" />
-          <path d="m150 52-18 60 18 98 18-98-18-60Zm-49 60h98" />
-          <circle className="jewelry-art__gem" cx="150" cy="52" r="8" />
-        </>
-      )}
-    </svg>
-  );
-}
-
 export default function Home() {
   const [style, setStyle] = useState("Minimal");
   const [metal, setMetal] = useState("Titanium");
@@ -105,61 +48,86 @@ export default function Home() {
 
           <div className="hero__content">
             <p className="eyebrow"><span /> Independent Piercing · Angeles City</p>
-            <h1>
-              Pierce
-              <em>the</em>
-              Veil
-            </h1>
+            <h1>piercetheveil.ac</h1>
             <p className="hero__lede">
               "ako lang ba pinaka niche at esoteric na piercer sa angeles city??"
             </p>
             <div className="hero__actions">
               <a className="button button--light" href="#collection">
-                Explore the collection <Icon type="arrow" />
+                View jewelry options <Icon type="arrow" />
               </a>
               <a className="text-link" href="#recommendation">Meet your AI stylist</a>
             </div>
           </div>
 
-          <div className="hero__art" aria-label="Pierce the Veil brand illustration">
+          <div className="hero__art" aria-label="piercetheveil.ac brand illustration">
             <div className="hero__orbit hero__orbit--one" />
             <div className="hero__orbit hero__orbit--two" />
             <div className="hero__logo-wrap">
-              <img src={logo} alt="Pierce the Veil illustrated logo" />
+              <img src={logo} alt="piercetheveil.ac illustrated logo" />
             </div>
             <span className="hero__note hero__note--top">Curated for you</span>
             <span className="hero__note hero__note--bottom">Est. in Angeles</span>
           </div>
 
-          <a className="hero__scroll" href="#about" aria-label="Scroll to about Pierce the Veil">
+          <a className="hero__scroll" href="#about" aria-label="Scroll to about piercetheveil.ac">
             <span>Discover</span><i />
           </a>
         </section>
 
-        <section className="experience section" id="about">
-          <div className="section-heading section-heading--split">
+        <section className="experience about-editorial section" id="about">
+          <div className="about-editorial__intro">
             <div>
-              <p className="eyebrow eyebrow--dark"><span /> About Pierce the Veil</p>
+              <p className="eyebrow eyebrow--dark"><span /> About piercetheveil.ac</p>
               <h2>Small business,<br /><em>personal service.</em></h2>
             </div>
-            <p>
-              There is no permanent studio. Pierce the Veil serves select client
-              addresses and joins occasional pop-ups around Angeles City.
-            </p>
+
+            <div className="about-editorial__story">
+              <p className="about-editorial__lead">Independent piercing, made personal.</p>
+              <div>
+                <p>
+                  piercetheveil.ac is a small independent piercing business serving
+                  select client addresses around Angeles City. Every appointment is
+                  planned with the client's anatomy, comfort, and individual style in mind.
+                </p>
+                <p>
+                  There is no permanent studio. The setup and location are confirmed
+                  before booking, while occasional booths bring the business to different
+                  events and spaces around the city.
+                </p>
+              </div>
+            </div>
           </div>
 
-          <div className="experience-grid">
-            {experiences.map((item) => (
-              <article className="experience-card" key={item.number}>
-                <span className="experience-card__number">{item.number}</span>
-                <span className="experience-card__icon"><Icon type={item.icon} /></span>
-                <h3>{item.title}</h3>
-                <p>{item.text}</p>
-                <a href={item.href}>
-                  Learn more <Icon type="arrow" />
-                </a>
-              </article>
-            ))}
+          <figure className="about-editorial__booth">
+            <img src={boothSetup} alt="piercetheveil.ac pop-up booth setup with jewelry and hand-drawn piercing references" />
+            <figcaption><span>01</span> The pop-up setup · Angeles City</figcaption>
+          </figure>
+
+          <div className="about-editorial__people">
+            <figure>
+              <img src={ptvPiercers} alt="The people behind piercetheveil.ac at their booth" />
+            </figure>
+
+            <div className="about-editorial__people-copy">
+              <p className="eyebrow eyebrow--dark"><span /> Behind the booth</p>
+              <h3>Hindi lang tenga ang<br /><em>binubutasan dito.</em></h3>
+              <p>
+                Pati katahimikan, kasi madaldal ang piercer mo.
+              </p>
+              <p>
+                Independent piercer sa Angeles City na willing makinig sa buong lore mo habang pumipili tayo ng jewelry.
+              </p>
+              <p>
+                Small piercing booth lang tayo rito sa Angeles City. By appointment, walang minamadali, at may kasamang chika kung bet mo.
+              </p>
+              <ul aria-label="piercetheveil.ac service format">
+                <li>BY APPOINTMENT LANG, BEH</li>
+                <li>POP-UP KAPAG SINIPAG ANG UNIVERSE</li>
+                <li>ANGELES CITY REPRESENT!</li>
+              </ul>
+              <a className="text-link" href="#price-guide">PA-BUTAS KA NA</a>
+            </div>
           </div>
         </section>
 
@@ -167,29 +135,45 @@ export default function Home() {
 
         <section className="collection section" id="collection">
           <Sigil className="collection__sigil" />
-          <div className="section-heading section-heading--center">
-            <p className="eyebrow eyebrow--dark"><span /> Find your language</p>
-            <h2>Jewelry with a <em>point of view.</em></h2>
-            <p>Three directions, one collection shaped around self-expression.</p>
-          </div>
+          <div className="jewelry-options">
+            <figure className="jewelry-options__visual">
+              <img src={jewelryOptions} alt="Standard and premium piercing jewelry currently available from piercetheveil.ac" />
+              <figcaption>Current selection · availability may vary</figcaption>
+            </figure>
 
-          <div className="collection-grid">
-            {collection.map((item, index) => (
-              <article className="collection-card" key={item.title}>
-                <div className="collection-card__visual">
-                  <span>0{index + 1}</span>
-                  <JewelryArt type={item.art} />
-                </div>
-                <div className="collection-card__copy">
-                  <p>{item.label}</p>
-                  <h3>{item.title}</h3>
-                  <span>{item.note}</span>
-                </div>
-              </article>
-            ))}
+            <div className="jewelry-options__copy">
+              <p className="eyebrow"><span /> A few clear choices</p>
+              <h2>Choose your <em>finish.</em></h2>
+              <p className="jewelry-options__intro">
+                Let the piercer know which earring option you want to avail for when
+                confirming your appointment.
+              </p>
+
+              <div className="jewelry-options__prices" aria-label="Jewelry pricing options">
+                <article>
+                  <span>01</span>
+                  <div><h3>Standard silver</h3><p>Included in the piercing price</p></div>
+                  <strong>Included</strong>
+                </article>
+                <article>
+                  <span>02</span>
+                  <div><h3>Standard gold</h3><p>A warm-toned standard option</p></div>
+                  <strong>+₱50</strong>
+                </article>
+                <article>
+                  <span>03</span>
+                  <div><h3>Premium silver or gold</h3><p>For a more detailed jewelry option</p></div>
+                  <strong>+₱100</strong>
+                </article>
+              </div>
+
+              <p className="jewelry-options__note">
+                Styles and quantities are limited. Confirm your preferred piece with
+                the piercer before the appointment.
+              </p>
+              <Link className="button button--light" to="/availability">Ask about jewelry</Link>
+            </div>
           </div>
-          <p className="collection__note">Collection imagery is an artistic preview; the live catalog reflects available shop inventory.</p>
-          <p className="collection__cta"><Link className="button button--dark" to="/catalog">Browse the live catalog</Link></p>
         </section>
 
         <GallerySection />
@@ -202,11 +186,11 @@ export default function Home() {
             <h2>Your taste,<br /><em>translated.</em></h2>
             <p className="recommendation__lede">
               Tell us what feels like you. PierceWise is designed to use browser-side
-              semantic similarity to rank available jewelry—not just filter a list.
+              semantic similarity to rank the piercer's available jewelry options.
             </p>
             <ol className="recommendation__steps">
               <li><span>01</span> Share your aesthetic, material, color, and budget.</li>
-              <li><span>02</span> The on-device model compares meaning across the catalog.</li>
+              <li><span>02</span> The on-device model compares meaning across available pieces.</li>
               <li><span>03</span> Explore three strong matches and why they fit.</li>
             </ol>
             <p className="privacy-note">Private by design · the model runs in your browser</p>
@@ -264,7 +248,7 @@ export default function Home() {
             </div>
 
             <p className="stylist-card__disclaimer">
-              This is a preview. The live AI stylist, with real catalog matches, is on its own page.
+              This is a preview. The live AI stylist uses jewelry options recorded by the piercer.
             </p>
           </div>
         </section>
@@ -274,8 +258,8 @@ export default function Home() {
           <Sigil className="closing__sigil" />
           <p className="eyebrow eyebrow--dark"><span /> Your next chapter</p>
           <h2>Wear what moves you.</h2>
-          <p>Explore the concept today. The full catalog and appointment experience are next.</p>
-          <a className="button button--dark" href="#collection">Begin with the collection <Icon type="arrow" /></a>
+          <p>Review the current jewelry options, then check availability for your preferred piercing.</p>
+          <a className="button button--dark" href="#collection">See jewelry options <Icon type="arrow" /></a>
         </section>
 
         <InstagramSection />

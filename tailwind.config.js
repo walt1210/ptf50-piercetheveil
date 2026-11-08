@@ -17,7 +17,7 @@ export default {
         }
       },
       fontFamily: {
-        serif: ['"Cormorant Garamond"', 'Georgia', 'serif'],
+        serif: ['"Blackadder ITC"', '"Times New Roman"', 'serif'],
         sans: ['"DM Sans"', 'system-ui', 'sans-serif'],
       }
     },

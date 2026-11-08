@@ -11,7 +11,7 @@ export default function ServicesGuide() {
         <p className="eyebrow eyebrow--dark"><span /> Services & price guide</p>
         <h2>Choose your<br /><em>placement.</em></h2>
         <p>
-          Browse Pierce the Veil’s current piercing menu.
+          Browse piercetheveil.ac’s current piercing menu.
           Every placement is still subject to an anatomy assessment.
         </p>
         <div className="price-guide__tabs" role="tablist" aria-label="Piercing categories">

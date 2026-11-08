@@ -1,9 +1,9 @@
 import { useState } from 'react';
-import { Gem } from 'lucide-react';
 import { Navigate, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
 import { getProfile, signIn, signOut } from '../../features/authentication/authService';
 import { toUserMessage } from '../../services/api';
+import logo from '../../assets/PTV-logo.webp';
 
 export default function Login() {
   const navigate = useNavigate();
@@ -44,9 +44,16 @@ export default function Login() {
         <div className="absolute top-0 right-0 w-2 h-2 border-t border-r border-brand-cream"></div>
 
         <div className="text-center mb-10">
-          <Gem size={32} strokeWidth={1} className="text-brand-blood mx-auto mb-4" />
-          <h1 className="text-4xl font-serif text-brand-cream tracking-widest mb-2">Pierce <span className="italic text-brand-blood">the</span> Veil</h1>
-          <p className="text-xs text-brand-muted uppercase tracking-[0.2em]">Authorized Personnel Only</p>
+          <div className="brand justify-center mb-5" aria-label="piercetheveil.ac admin portal">
+            <span className="brand__mark shrink-0">
+              <img src={logo} alt="" />
+            </span>
+            <span className="brand__name text-left text-brand-cream">
+              piercetheveil.ac
+              <small>Admin Portal</small>
+            </span>
+          </div>
+          <p className="text-[10px] text-brand-muted uppercase tracking-[0.24em]">Authorized Personnel Only</p>
         </div>
 
         <form onSubmit={handleLogin} className="space-y-8">
