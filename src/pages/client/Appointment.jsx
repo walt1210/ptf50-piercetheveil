@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import {
   useAvailableSlots,
@@ -6,10 +6,20 @@ import {
   useServices,
 } from "../../hooks/useAppointments";
 import { formatManila } from "../../services/api";
-import { formatReference, validateGuestDetails } from "../../features/appointments/appointmentValidation";
+import {
+  MAX_ADDRESS_LENGTH,
+  MAX_EXTRA_NOTES_LENGTH,
+  buildBookingNotes,
+  formatReference,
+  validateAddress,
+  validateGuestDetails,
+} from "../../features/appointments/appointmentValidation";
 
 const MANILA_OFFSET = "+08:00";
 const SETTING_LABELS = { address: "Client address", popup: "Pop-up booth" };
+// Flip to true when the shop announces a pop-up booth. Until then the option stays visible but cannot be chosen,
+// so nobody books a pop-up that does not exist.
+const POPUP_AVAILABLE = false;
 
 const manilaDateFormatter = new Intl.DateTimeFormat("en-CA", {
   timeZone: "Asia/Manila",
@@ -48,7 +58,6 @@ function getToday() {
 function getFirstAvailableDate() {
   const date = getToday();
   date.setDate(date.getDate() + 1);
-  while (date.getDay() === 1) date.setDate(date.getDate() + 1);
   return date;
 }
 
@@ -102,6 +111,9 @@ export default function Appointment() {
   const [guestName, setGuestName] = useState("");
   const [guestPhone, setGuestPhone] = useState("");
   const [guestEmail, setGuestEmail] = useState("");
+  const [address, setAddress] = useState("");
+  const [extraNotes, setExtraNotes] = useState("");
+  const userPickedDate = useRef(false);
   const [confirmation, setConfirmation] = useState(null); // { reference } after a successful request
 
   const service = services.find((item) => item.id === serviceId) ?? services[0] ?? null;
@@ -135,6 +147,18 @@ export default function Appointment() {
   }, [slotsByDate]);
   const slotsReady = !slotsLoading && !slotsError;
 
+  // Until the customer picks a date themselves, jump to the first day that actually has open times.
+  useEffect(() => {
+    if (userPickedDate.current || !slotsReady || openDays.size === 0) return;
+    if (openDays.has(localDateKey(selectedDate))) return;
+    const todayKey = localDateKey(today);
+    const firstKey = [...openDays].filter((key) => key > todayKey).sort()[0];
+    if (!firstKey) return;
+    const [year, month, day] = firstKey.split("-").map(Number);
+    setSelectedDate(new Date(year, month - 1, day, 12));
+    setCalendarMonth(new Date(year, month - 1, 1, 12));
+  }, [slotsReady, openDays, selectedDate, today]);
+
   const daySlots = slotsByDate.get(localDateKey(selectedDate)) ?? [];
   const selectedSlot = daySlots.find((slot) => slot.id === selectedSlotId && slot.remaining > 0) ?? null;
   const calendarDays = useMemo(() => makeCalendarDays(calendarMonth), [calendarMonth]);
@@ -144,6 +168,7 @@ export default function Appointment() {
   const canGoForward = calendarMonth < lastCalendarMonth;
 
   const selectDate = (date) => {
+    userPickedDate.current = true;
     setSelectedDate(date);
     setSelectedSlotId("");
     setNotice("");
@@ -168,6 +193,14 @@ export default function Appointment() {
       return;
     }
 
+    if (visitType === "address") {
+      const addressCheck = validateAddress(address);
+      if (!addressCheck.ok) {
+        setNotice(addressCheck.message);
+        return;
+      }
+    }
+
     setNotice("");
     const result = await request({
       serviceId: service.id,
@@ -175,7 +208,11 @@ export default function Appointment() {
       guestName,
       guestPhone,
       guestEmail,
-      notes: `Setting: ${SETTING_LABELS[visitType]}`,
+      notes: buildBookingNotes({
+        settingLabel: SETTING_LABELS[visitType],
+        address: visitType === "address" ? address : "",
+        extra: extraNotes,
+      }),
       slotStartsAt: selectedSlot.startsAt,
     });
 
@@ -199,7 +236,7 @@ export default function Appointment() {
         <section className="availability-hero">
           <div className="availability-hero__texture" />
           <div className="availability-hero__copy">
-            <p className="eyebrow"><span /> Appointment preview · Angeles City</p>
+            <p className="eyebrow"><span /> Book an appointment · Angeles City</p>
             <h1>Find a time<br /><em>that feels right.</em></h1>
             <p>
               Check upcoming client-address availability and announced pop-up dates.
@@ -256,7 +293,7 @@ export default function Appointment() {
               <section className="availability-step" aria-labelledby="date-step">
                 <div className="availability-step__heading">
                   <span>02</span>
-                  <div><h3 id="date-step">Pick a date</h3><p>Mondays are unavailable.</p></div>
+                  <div><h3 id="date-step">Pick a date</h3><p>Days marked Open have times you can request.</p></div>
                 </div>
                 <div className="booking-calendar">
                   <div className="booking-calendar__header">
@@ -287,7 +324,7 @@ export default function Appointment() {
                     {calendarDays.map((date) => {
                       const outsideMonth = date.getMonth() !== calendarMonth.getMonth();
                       const noOpenTimes = slotsReady && !openDays.has(localDateKey(date));
-                      const unavailableDay = date <= today || date > lastBookableDate || date.getDay() === 1 || outsideMonth || noOpenTimes;
+                      const unavailableDay = date <= today || date > lastBookableDate || outsideMonth || noOpenTimes;
                       const active = isSameDate(date, selectedDate);
 
                       return (
@@ -362,11 +399,32 @@ export default function Appointment() {
                     <span>Client address</span>
                     <small>Select areas around Angeles City · subject to setup review</small>
                   </button>
-                  <button className={visitType === "popup" ? "active" : ""} type="button" onClick={() => setVisitType("popup")}>
+                  <button
+                    className={visitType === "popup" ? "active" : ""}
+                    type="button"
+                    disabled={!POPUP_AVAILABLE}
+                    onClick={() => setVisitType("popup")}
+                  >
                     <span>Pop-up booth</span>
-                    <small>No announced booth for this preview date · check Instagram for updates</small>
+                    <small>{POPUP_AVAILABLE ? "Join an announced pop-up date" : "No pop-up dates announced right now · check Instagram for updates"}</small>
                   </button>
                 </div>
+                {visitType === "address" && (
+                  <div className="guest-form guest-form--setting">
+                    <label className="guest-form__wide">
+                      <span>Address or landmark</span>
+                      <input
+                        autoComplete="street-address"
+                        maxLength={MAX_ADDRESS_LENGTH}
+                        onChange={(e) => { setAddress(e.target.value); setNotice(""); }}
+                        placeholder="Barangay, street, and a nearby landmark"
+                        type="text"
+                        value={address}
+                      />
+                    </label>
+                    <p className="guest-form__privacy">The shop reviews your address before approving, and may message you to confirm the exact spot.</p>
+                  </div>
+                )}
               </section>
 
               <section className="availability-step" aria-labelledby="details-step">
@@ -410,7 +468,18 @@ export default function Appointment() {
                       value={guestEmail}
                     />
                   </label>
-                  <p className="guest-form__privacy">We use your name and number only to confirm and manage your appointment.</p>
+                  <label className="guest-form__wide">
+                    <span>Anything we should know? <em>(optional)</em></span>
+                    <textarea
+                      maxLength={MAX_EXTRA_NOTES_LENGTH}
+                      onChange={(e) => { setExtraNotes(e.target.value); setNotice(""); }}
+                      placeholder="Piercing placement you have in mind, jewelry you like, first piercing, allergies…"
+                      rows={3}
+                      value={extraNotes}
+                    />
+                    <small className="guest-form__count">{extraNotes.length}/{MAX_EXTRA_NOTES_LENGTH}</small>
+                  </label>
+                  <p className="guest-form__privacy">We use your name, number, address and notes only to confirm and manage your appointment.</p>
                 </div>
               </section>
             </div>
@@ -424,6 +493,7 @@ export default function Appointment() {
                 <div><dt>Date</dt><dd>{formatDate(selectedDate, { month: "short", day: "numeric", year: "numeric" })}</dd></div>
                 <div><dt>Time</dt><dd>{selectedSlot ? selectedSlot.label : "Not selected"}</dd></div>
                 <div><dt>Setting</dt><dd>{SETTING_LABELS[visitType]}</dd></div>
+                {visitType === "address" && <div><dt>Address</dt><dd>{address.trim() || "—"}</dd></div>}
                 <div><dt>Name</dt><dd>{guestName.trim() || "—"}</dd></div>
               </dl>
               <div className="booking-summary__message">

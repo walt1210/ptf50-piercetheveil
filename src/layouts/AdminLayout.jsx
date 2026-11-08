@@ -1,5 +1,6 @@
 import { Outlet, Link, useLocation, useNavigate } from 'react-router-dom';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import { usePendingCount } from '../hooks/usePendingCount';
 import { signOut } from '../features/authentication/authService';
 import { toUserMessage } from '../services/api';
 import { LayoutDashboard, CalendarDays, Clock, Scissors, Gem, Users, LogOut, Menu, X } from 'lucide-react';
@@ -10,6 +11,15 @@ export default function AdminLayout() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [signingOut, setSigningOut] = useState(false);
   const [signOutError, setSignOutError] = useState('');
+  const pending = usePendingCount();
+
+  // show waiting requests in the browser tab too, so the shop notices without opening the page
+  useEffect(() => {
+    document.title = pending > 0 ? `(${pending}) Admin | Pierce the Veil` : 'Admin | Pierce the Veil';
+    return () => {
+      document.title = 'Pierce the Veil | Angeles City';
+    };
+  }, [pending]);
 
   const handleSignOut = async () => {
     setSignOutError('');
@@ -72,6 +82,14 @@ export default function AdminLayout() {
               >
                 <Icon size={18} strokeWidth={1.5} />
                 <span className="font-light tracking-wide text-sm uppercase">{item.name}</span>
+                {item.path === '/admin/appointments' && pending > 0 && (
+                  <span
+                    aria-label={`${pending} pending request${pending === 1 ? '' : 's'}`}
+                    className="ml-auto min-w-[1.5rem] h-6 px-2 flex items-center justify-center rounded-full bg-brand-gold text-brand-black text-xs font-semibold"
+                  >
+                    {pending}
+                  </span>
+                )}
               </Link>
             );
           })}
@@ -104,6 +122,15 @@ export default function AdminLayout() {
             {isSidebarOpen ? <X size={22} /> : <Menu size={22} />}
           </button>
           <span className="font-serif tracking-wide">Admin Portal</span>
+          {pending > 0 && (
+            <Link
+              to="/admin/appointments"
+              aria-label={`${pending} pending request${pending === 1 ? '' : 's'}`}
+              className="ml-auto min-w-[1.5rem] h-6 px-2 flex items-center justify-center rounded-full bg-brand-gold text-brand-black text-xs font-semibold"
+            >
+              {pending}
+            </Link>
+          )}
         </header>
         <div className="mx-auto max-w-7xl p-4 sm:p-6 lg:p-10">
           <Outlet />

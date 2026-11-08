@@ -7,6 +7,14 @@
   customer notes + a per-row History view; Services can be edited (name/price/duration/type); blocking a date warns about existing
   bookings first; new slots skip overlaps and past times; lists page past Supabase's 1000-row limit (fetchAll); jewelry placements
   save safely (upsert then remove); upload type taken from MIME; edit modal asks before discarding; logo is webp (2.5 MB -> ~100 KB).
+- ROUND 1 UI/UX (2026-11-08, build + logic/render smoke tests pass, NOT yet clicked through in a browser with real data):
+  Schedule page is now a month calendar (AdminCalendar) + day panel (DayPanel: slots, who booked, block/unblock a slot or the day,
+  add slots) + "Repeat weekly" (WeeklyPlanner: preview, then create many days at once, batch insert). Replaces the Operating Hours card,
+  date pickers and Blocked Dates list. Sidebar "Appointments" shows a pending badge (polls every 60 s, updates after approve/reject) and
+  the browser tab title shows "(n) Admin". Booking form: address/landmark (required for client-address visits) and notes fields,
+  hard-coded Monday block removed (open slots decide), "preview" wording removed, Pop-up option disabled until POPUP_AVAILABLE=true in
+  Appointment.jsx, calendar jumps to the first day with open times. Jewelry photos are resized/converted in the browser (any phone photo
+  works). tailwind brand-gold token fixed (class is now text-brand-gold; it previously generated no CSS).
 - AUTH: admin only. authService, AuthContext (waits for profile), ProtectedRoute (always /admin/login), admin Login + Sign Out
 - ADMIN pages, all on real data: Dashboard, Appointments (approve/reject/reschedule/complete/cancel/no-show),
   Jewelry Management (CRUD, photo upload, approved placements, hide/show, AI index status),
@@ -37,8 +45,10 @@
 1. (fixed by 0007) Client names, phones and emails now come from guest bookings.
 2. Schedule only has slots up to 2026-11-17: add more in the admin Schedule page (URGENT: customers see no availability after that).
 6. Open: request_appointment's 20-per-10-minutes limit is global (one spammer can block real bookings); get_booking/cancel_booking have no failed-attempt throttle; recommendation_feedback.customer_id is dormant.
-3. Blocking a date only sets is_blocked; it does NOT cancel appointments already booked on those slots (the admin now gets a warning with the count and must handle them in Appointments).
-4. Operating hours are derived from availability_slots (no hours table); a real hours table would need migration + RLS + test.
+3. Blocking a date/slot only sets is_blocked; it does NOT cancel appointments already booked on those slots (the admin gets a warning with the count and must handle them in Appointments).
+4. There is no operating-hours table: the calendar and "Repeat weekly" create/derive everything from availability_slots.
+7. Same-day booking is blocked on the public page (date <= today); decide if that is intended.
+8. Round 2 (not started): Appointments calendar toggle + Needs-action default + search + "More" menu, tap-to-call, dashboard agenda, mobile cards. Round 3: price guide from DB, AI prompt chips, favicon/Privacy/404/Open Graph, lazy-load admin routes. Email notifications (Resend; owner email works without a domain, customer email needs a verified domain). Age/health rules deliberately NOT added yet.
 5. npm audit: 4 high, all Node-only deps of the AI library (adm-zip, sharp via onnxruntime-node); not in the browser bundle.
    Revisit mid-Nov: commit first, then `npm audit fix`, re-test. Never use --force.
 

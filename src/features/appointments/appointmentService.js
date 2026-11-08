@@ -117,6 +117,15 @@ export async function adminUpdateAppointment(id, action, { newSlotId, note } = {
     p_note: note ?? null,
   });
   if (error) throw error;
+  // tell the rest of the admin (e.g. the sidebar badge) that counts may have changed
+  if (typeof window !== "undefined") window.dispatchEvent(new Event("appointments-changed"));
+}
+
+// How many requests are waiting for the shop to approve or reject.
+export async function countPendingAppointments() {
+  const { count, error } = await supabase.from("appointments").select("id", { count: "exact", head: true }).eq("status", "PENDING");
+  if (error) throw error;
+  return count ?? 0;
 }
 
 export async function getAppointmentEvents(appointmentId) {
@@ -169,8 +178,49 @@ export async function createSlot({ startsAt, endsAt, capacity = 1 }) {
 }
 
 export async function setSlotBlocked(slotId, isBlocked) {
-  const { error } = await supabase.from("availability_slots").update({ is_blocked: isBlocked }).eq("id", slotId);
-  if (error) throw error;
+  await setSlotsBlocked([slotId], isBlocked);
+}
+
+// Block/unblock several slots. RLS can silently update 0 rows, so confirm every row changed.
+export async function setSlotsBlocked(slotIds, isBlocked) {
+  for (let i = 0; i < slotIds.length; i += 100) {
+    const ids = slotIds.slice(i, i + 100);
+    const { data, error } = await supabase.from("availability_slots").update({ is_blocked: isBlocked }).in("id", ids).select("id");
+    if (error) throw error;
+    if ((data?.length ?? 0) !== ids.length) throw new Error("Some slots could not be updated. Please reload and try again.");
+  }
+}
+
+// Insert many slots at once (100 per request). On failure the error carries `.created` = how many were saved.
+export async function createSlots(rows) {
+  let created = 0;
+  for (let i = 0; i < rows.length; i += 100) {
+    const chunk = rows.slice(i, i + 100).map((r) => ({
+      starts_at: new Date(r.startsAt).toISOString(),
+      ends_at: new Date(r.endsAt).toISOString(),
+      capacity: r.capacity ?? 1,
+    }));
+    const { error } = await supabase.from("availability_slots").insert(chunk);
+    if (error) {
+      error.created = created;
+      throw error;
+    }
+    created += chunk.length;
+  }
+  return created;
+}
+
+// PENDING/APPROVED bookings whose slot starts in [from, to). Used by the admin calendar.
+export async function listBookingsInRange(from, to) {
+  return fetchAll(() =>
+    supabase
+      .from("appointments")
+      .select("id, status, slot_id, guest_name, guest_phone, services(name), availability_slots!inner(starts_at)")
+      .in("status", ["PENDING", "APPROVED"])
+      .gte("availability_slots.starts_at", new Date(from).toISOString())
+      .lt("availability_slots.starts_at", new Date(to).toISOString())
+      .order("id")
+  );
 }
 
 /* ---------------- admin: service management ---------------- */

@@ -13,7 +13,7 @@ export default {
           blood: '#5c0a0a', // Deep crimson accent
           cream: '#fdfbf7', // Off-white text
           muted: '#8c7b7b', // Secondary text
-          'brand-gold': '#d4af37',
+          gold: '#d4af37',
         }
       },
       fontFamily: {

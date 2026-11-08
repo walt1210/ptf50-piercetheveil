@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Plus, Edit2, Eye, EyeOff } from 'lucide-react';
+import { prepareJewelryImage } from '../../features/jewelry/imageCompress';
 import {
   createJewelry,
   listJewelry,
@@ -212,6 +213,7 @@ function JewelryForm({ item, types, onClose, onSaved }) {
   const [file, setFile] = useState(null);
   const [preview, setPreview] = useState(item?.image_url ?? null);
   const [saving, setSaving] = useState(false);
+  const [processing, setProcessing] = useState(false);
   const [err, setErr] = useState('');
 
   useEffect(() => {
@@ -225,15 +227,26 @@ function JewelryForm({ item, types, onClose, onSaved }) {
   const togglePlacement = (id) =>
     setPlacements((p) => (p.includes(id) ? p.filter((x) => x !== id) : [...p, id]));
 
-  const pickFile = (e) => {
-    const f = e.target.files?.[0];
+  const pickFile = async (e) => {
+    const input = e.target;
+    const f = input.files?.[0];
     if (!f) return;
     if (!['image/jpeg', 'image/png', 'image/webp', 'image/gif'].includes(f.type)) {
+      input.value = '';
       return setErr('Please choose a JPG, PNG, WebP or GIF image.');
     }
-    if (f.size > MAX_IMAGE_BYTES) return setErr('Image is too large. Please keep it under 2 MB.');
     setErr('');
-    setFile(f);
+    setProcessing(true);
+    try {
+      // phone photos are resized and converted here, so any normal photo works
+      const ready = await prepareJewelryImage(f, { maxBytes: MAX_IMAGE_BYTES });
+      setFile(ready);
+    } catch (error) {
+      input.value = '';
+      setErr(error.message);
+    } finally {
+      setProcessing(false);
+    }
   };
 
   const submit = async (e) => {
@@ -339,12 +352,21 @@ function JewelryForm({ item, types, onClose, onSaved }) {
         </div>
 
         <div>
-          <label className={label}>Photo (max 2 MB)</label>
+          <label className={label}>Photo</label>
           <div className="flex items-center gap-4">
             <div className="h-20 w-20 bg-brand-black border border-brand-blood/20 overflow-hidden flex items-center justify-center shrink-0">
               {preview ? <img src={preview} alt="" className="h-full w-full object-cover" /> : <span className="text-[10px] text-brand-muted">None</span>}
             </div>
-            <input type="file" accept="image/jpeg,image/png,image/webp,image/gif" onChange={pickFile} className="text-xs text-brand-muted" />
+            <div className="min-w-0">
+              <input type="file" accept="image/jpeg,image/png,image/webp,image/gif" onChange={pickFile} disabled={processing || saving} className="text-xs text-brand-muted" />
+              <p className="mt-2 text-[11px] text-brand-muted" role="status">
+                {processing
+                  ? 'Preparing photo…'
+                  : file
+                    ? `Ready to upload (${Math.max(1, Math.round(file.size / 1024))} KB).`
+                    : 'Any phone photo works. It is resized automatically.'}
+              </p>
+            </div>
           </div>
         </div>
 
@@ -377,7 +399,7 @@ function JewelryForm({ item, types, onClose, onSaved }) {
           </button>
           <button
             type="submit"
-            disabled={saving}
+            disabled={saving || processing}
             className="border border-brand-cream text-brand-cream px-6 py-2 text-xs uppercase tracking-widest hover:bg-brand-cream hover:text-brand-black transition-all disabled:opacity-50"
           >
             {saving ? 'Saving…' : 'Save'}

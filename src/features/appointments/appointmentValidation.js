@@ -4,6 +4,27 @@
 
 export const MAX_NOTES_LENGTH = 500;
 export const MAX_NAME_LENGTH = 80;
+export const MAX_ADDRESS_LENGTH = 200;
+export const MAX_EXTRA_NOTES_LENGTH = 250; // setting + address + notes together stay under MAX_NOTES_LENGTH
+
+// Joins the booking form's separate fields into the single notes text the database stores,
+// e.g. "Setting: Client address\nAddress: Brgy. Balibago, near Jollibee\nNotes: first piercing".
+export function buildBookingNotes({ settingLabel, address, extra } = {}) {
+  const lines = [`Setting: ${settingLabel}`];
+  const cleanAddress = String(address ?? "").trim();
+  const cleanExtra = String(extra ?? "").trim();
+  if (cleanAddress) lines.push(`Address: ${cleanAddress}`);
+  if (cleanExtra) lines.push(`Notes: ${cleanExtra}`);
+  return lines.join("\n");
+}
+
+// A client-address visit needs somewhere to go. A barangay + landmark is enough at request time.
+export function validateAddress(address) {
+  const clean = String(address ?? "").trim();
+  if (clean.length < 5) return { ok: false, message: "Please enter your address or a landmark so the shop knows where to go." };
+  if (clean.length > MAX_ADDRESS_LENGTH) return { ok: false, message: `Address must be ${MAX_ADDRESS_LENGTH} characters or fewer.` };
+  return { ok: true };
+}
 
 const EMAIL_PATTERN = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
 

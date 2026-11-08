@@ -4035,3 +4035,43 @@ body.nav-open {
 
 /* dark native date/time pickers in the admin portal */
 .color-scheme-dark { color-scheme: dark; }
+
+/* Booking form: wide fields, notes box, disabled setting option */
+.guest-form label.guest-form__wide {
+  grid-column: 1 / -1;
+}
+
+.guest-form textarea {
+  background: rgba(252, 246, 236, 0.58);
+  border: 1px solid rgba(65, 2, 1, 0.16);
+  color: var(--ink);
+  font: inherit;
+  font-size: 15px;
+  line-height: 1.5;
+  min-height: 84px;
+  padding: 12px 14px;
+  resize: vertical;
+  width: 100%;
+}
+
+.guest-form textarea:focus {
+  border-color: var(--rust);
+  outline: 2px solid rgba(165, 90, 64, 0.28);
+  outline-offset: 1px;
+}
+
+.guest-form__count {
+  color: var(--muted);
+  font-size: 10px;
+  justify-self: end;
+}
+
+.guest-form--setting {
+  margin-top: 14px;
+}
+
+.visit-options button:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+  transform: none;
+}
