@@ -76,6 +76,8 @@ export async function getBooking({ reference, phone }) {
   const { data, error } = await supabase.rpc("get_booking", { p_reference: reference, p_phone: phone });
   if (error) throw toServiceError(error);
   const row = Array.isArray(data) ? data[0] : data;
+  // 0009: a wrong code/phone now returns no row (instead of an error) so failed attempts can be counted.
+  if (!row) throw new Error("We could not find a booking with that code and phone number.");
   return {
     reference: row.booking_reference,
     status: row.status,
@@ -88,8 +90,10 @@ export async function getBooking({ reference, phone }) {
 
 // Cancel a PENDING/APPROVED booking with its reference code + phone number.
 export async function cancelBooking({ reference, phone }) {
-  const { error } = await supabase.rpc("cancel_booking", { p_reference: reference, p_phone: phone });
+  const { data, error } = await supabase.rpc("cancel_booking", { p_reference: reference, p_phone: phone });
   if (error) throw toServiceError(error);
+  // 0009: returns true when cancelled, false when the code + phone did not match any booking.
+  if (data === false) throw new Error("We could not find a booking with that code and phone number.");
 }
 
 /* ---------------- admin ---------------- */

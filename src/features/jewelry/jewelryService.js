@@ -23,8 +23,10 @@ export async function listJewelry({ search, material, style, maxPrice, piercingT
   if (byPlacement) {
     q = q.eq("jewelry_compatibility.piercing_type_id", piercingTypeId).eq("jewelry_compatibility.approved", true);
   }
-  if (search?.trim()) {
-    const safe = search.trim().replace(/[,()%]/g, " ");
+  if (search?.trim() && /[^\s,()%._:*\\"'`]/.test(search)) {
+    // Characters with a special meaning inside a PostgREST filter string are replaced by spaces,
+    // so typed text can never add its own conditions to the query.
+    const safe = search.trim().replace(/[,()%._:*\\"'`]/g, " ").replace(/\s+/g, " ").trim().slice(0, 80);
     q = q.or(`name.ilike.%${safe}%,description.ilike.%${safe}%`);
   }
   if (material) q = q.eq("material", material);

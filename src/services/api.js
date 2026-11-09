@@ -15,6 +15,10 @@ export function toUserMessage(error) {
     return "You already have 3 upcoming requests. Please wait for the shop to confirm one, or cancel one first.";
   if (m.includes("Too many requests right now"))
     return "We are getting a lot of requests right now. Please try again in a few minutes.";
+  if (m.includes("Too many attempts"))
+    return "Too many tries. Please wait about 15 minutes, or message the shop on Instagram.";
+  if (m.includes("Too many requests from this device"))
+    return "You have sent several requests already. Please wait a bit, or message the shop on Instagram.";
   if (m.includes("Invalid phone number")) return "Please enter a valid mobile number, e.g. 0917 123 4567.";
   if (m.includes("Please enter your name")) return "Please enter your name.";
   if (m.includes("Invalid email address")) return "That email address does not look right.";

@@ -8,6 +8,7 @@ const links = [
   { label: "Services", href: "/#price-guide" },
   { label: "Gallery", href: "/#gallery" },
   { label: "Aftercare", href: "/#care-guide" },
+  { label: "Jewelry", to: "/catalog" },
   { label: "AI Stylist", to: "/recommend" },
   { label: "My booking", to: "/booking" },
 ];

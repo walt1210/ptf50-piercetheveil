@@ -37,6 +37,12 @@
 - README, .env.example, .gitignore (ignores .env, .pnpm-store, public/ort, .vercel)
 - Evaluation kit drafted: PierceWise_Evaluation_Kit.xlsx (18 cases C01-C18 incl. 2 Taglish, marking sheet template)
 
+- REVIEW FIXES (2026-11-09, build OK; 0009 tested on a local Postgres, 27/27 checks pass; NOT yet run on the live DB or clicked through in a browser):
+  /catalog and /catalog/:id routes added (product cards used to bounce to Home) + "Jewelry" link in the navbar; catalog search strips more
+  special characters; vercel.json now sends security headers (CSP, X-Frame-Options, Referrer-Policy, Permissions-Policy) and caches /assets and /ort;
+  .gitignore no longer ignores .env.example; 0009_rate_limits.sql written (RUN IT, then redeploy the front end TOGETHER: get_booking/cancel_booking
+  behave differently and the new front end expects that).
+
 ## Not done
 - Run 0008, redeploy the front end with the admin fixes (`npx vercel --prod`). Confirm "Allow new users to sign up" is OFF in
   Supabase Auth. Optionally delete the test1/2/3 customer users.
@@ -54,7 +60,7 @@
 ## Known issues / cleanup
 1. (fixed by 0007) Client names, phones and emails now come from guest bookings.
 2. Schedule only has slots up to 2026-11-17: add more in the admin Schedule page (URGENT: customers see no availability after that).
-6. Open: request_appointment's 20-per-10-minutes limit is global (one spammer can block real bookings); get_booking/cancel_booking have no failed-attempt throttle; recommendation_feedback.customer_id is dormant.
+6. FIXED IN 0009 (run it): per-visitor and per-phone booking limits, global limit raised to a backstop (60/10 min), 10 failed lookups per 15 min per visitor. recommendation_feedback.customer_id is dormant (unused table, left alone).
 3. Blocking a date/slot only sets is_blocked; it does NOT cancel appointments already booked on those slots (the admin gets a warning with the count and must handle them in Appointments).
 4. There is no operating-hours table: the calendar and "Repeat weekly" create/derive everything from availability_slots.
 7. Same-day booking is blocked on the public page (date <= today); decide if that is intended.
