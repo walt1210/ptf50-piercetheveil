@@ -2,9 +2,11 @@ import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import PageHero from "../../components/client/PageHero";
 import ProductCard from "../../components/client/ProductCard";
+import VirtualTryOn from "../../components/client/VirtualTryOn";
 import { listJewelry, listPiercingTypes } from "../../features/jewelry/jewelryService";
 import { distinctValues } from "../../features/jewelry/jewelryFilters";
 import { recommend } from "../../features/recommendations/recommendationService";
+import { recommendPiercingSamples } from "../../features/recommendations/sampleRecommendationService";
 import { toUserMessage } from "../../services/api";
 
 const EMPTY = { piercingTypeId: "", budget: "", style: "", material: "", color: "", freeText: "" };
@@ -18,6 +20,7 @@ export default function AIRecommendation() {
   const [progress, setProgress] = useState(null); // model download percent (first use only)
   const [error, setError] = useState("");
   const [result, setResult] = useState(null);
+  const [selectedLook, setSelectedLook] = useState(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -50,7 +53,17 @@ export default function AIRecommendation() {
     setResult(null);
     setProgress(null);
     try {
-      setResult(await recommend({ ...form, onProgress: setProgress }));
+      const shopResult = await recommend({ ...form, onProgress: setProgress });
+      const placementName = types.find((type) => type.id === form.piercingTypeId)?.name;
+      const inspirations = await recommendPiercingSamples({
+        placementName,
+        style: form.style,
+        material: form.material,
+        color: form.color,
+        freeText: form.freeText,
+        onProgress: setProgress,
+      });
+      setResult({ ...shopResult, inspirations });
     } catch (err) {
       setError(toUserMessage(err));
     } finally {
@@ -61,10 +74,15 @@ export default function AIRecommendation() {
 
   const placementName = types.find((t) => t.id === form.piercingTypeId)?.name;
 
+  const trySample = (sample) => {
+    setSelectedLook(sample);
+    requestAnimationFrame(() => document.getElementById("virtual-try-on")?.scrollIntoView({ behavior: "smooth", block: "start" }));
+  };
+
   return (
     <main>
       <PageHero eyebrow="PierceWise · AI stylist" title={<>Your taste, <em>translated.</em></>}>
-        Tell us where you are getting pierced and what feels like you. We only suggest pieces the shop has approved for that placement, then rank them by how well they match your description.
+        Tell us where you are getting pierced and what feels like you. We check the shop&apos;s available pieces first, then use an on-device model to rank real portfolio samples for extra inspiration.
       </PageHero>
 
       <section className="page-body">
@@ -125,7 +143,7 @@ export default function AIRecommendation() {
           <div className="stylist-results">
             {result.mode === "none" && (
               <p className="callout" role="status">
-                No in-stock pieces are approved for {placementName ?? "that placement"} within your budget. Try a higher budget or another placement, or <Link className="link-button" to="/availability">book a time</Link> and ask your piercer.
+                No current shop-stock pieces are listed for {placementName ?? "that placement"} within your budget. The inspiration board below still shows the closest real portfolio samples, or you can <Link className="link-button" to="/availability">book a time</Link> and ask what is available.
               </p>
             )}
             {result.mode === "filter" && (
@@ -157,8 +175,51 @@ export default function AIRecommendation() {
             {result.results.length > 0 && (
               <p><Link className="button button--dark" to="/availability">Book a piercing</Link></p>
             )}
+
+            {result.inspirations?.results.length > 0 && (
+              <section className="sample-results" aria-labelledby="sample-results-title">
+                <div className="sample-results__heading">
+                  <div>
+                    <p className="eyebrow eyebrow--dark"><span /> ML-ranked portfolio</p>
+                    <h2 id="sample-results-title">Piercing looks to explore.</h2>
+                  </div>
+                  <p>
+                    These are real piercetheveil.ac placement photos, ranked against your placement and description by Hugging Face Transformers.js in your browser.
+                  </p>
+                </div>
+
+                {result.inspirations.mode === "fallback" && (
+                  <p className="callout" role="status">The online model could not load, so these samples use local placement and keyword matching.</p>
+                )}
+
+                <div className="sample-results__grid">
+                  {result.inspirations.results.map(({ sample, reasons }) => (
+                    <article className="sample-result" key={sample.id}>
+                      <div className="sample-result__media">
+                        <img src={sample.image} alt={`${sample.title} piercing portfolio sample`} loading="lazy" />
+                        <span>{sample.title}</span>
+                      </div>
+                      <div className="sample-result__body">
+                        <p className="sample-result__label">Portfolio inspiration</p>
+                        <h3>{sample.title}</h3>
+                        <p>{sample.description}</p>
+                        <ul className="reasons">{reasons.map((reason) => <li key={reason}>{reason}</li>)}</ul>
+                        <button className="sample-result__try" type="button" onClick={() => trySample(sample)}>
+                          Try this jewelry mood <span aria-hidden="true">↘</span>
+                        </button>
+                      </div>
+                    </article>
+                  ))}
+                </div>
+                <p className="detail__note">
+                  Portfolio matches are inspiration, not a promise that the pictured jewelry is in stock or that the placement suits your anatomy.
+                </p>
+              </section>
+            )}
           </div>
         )}
+
+        <VirtualTryOn preset={selectedLook} />
       </section>
     </main>
   );

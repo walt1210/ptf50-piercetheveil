@@ -62,6 +62,14 @@ export async function embedText(text, onProgress) {
   return Array.from(out.data, (x) => Math.round(x * 1e5) / 1e5); // shorter to store
 }
 
+// Batch embedding is used for the curated sample gallery. Keeping the query and
+// samples in one inference call is faster than running the model once per card.
+export async function embedTexts(texts, onProgress) {
+  const embedder = await loadEmbedder(onProgress);
+  const out = await embedder(texts, { pooling: 'mean', normalize: true });
+  return out.tolist().map((vector) => vector.map((x) => Math.round(x * 1e5) / 1e5));
+}
+
 // The text that represents a jewelry item. Price and stock are left out on purpose,
 // so changing them does not force a re-index.
 export function buildJewelryText(item) {
