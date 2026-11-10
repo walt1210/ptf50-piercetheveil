@@ -1,8 +1,15 @@
--- guest_booking_checks.sql : automated checks for 0007 (guest booking, no customer accounts).
--- Run AFTER 0007. No test users to create: it uses the existing admin profile (and a customer
+-- guest_booking_checks.sql : automated checks for guest booking (0007) as changed by 0009 (rate limits).
+-- Run AFTER 0009. No test users to create: it uses the existing admin profile (and a customer
 -- profile if one exists; those checks are skipped otherwise).
 -- Run this whole file in the SQL Editor. It ends with an intentional "error" that carries the
--- PASS/FAIL report, which also rolls back every booking it made.
+-- PASS/FAIL report, which also rolls back every booking it made, so real data is untouched.
+--
+-- Changes from the 0007 version:
+--   * get_booking returns NO ROW for a wrong code/phone; cancel_booking returns false (0009).
+--   * The test no longer assumes an empty appointments table: it counts existing rows first (base).
+--   * Added: visitors cannot read rate_limit_events.
+-- Note: the SQL Editor sends no request headers, so client_key() is NULL and the per-visitor
+-- rate limits are skipped here. They are NOT covered by this file; test them by hand in the app.
 
 do $$
 declare
@@ -10,7 +17,8 @@ declare
   svc uuid; s1 uuid; s2 uuid; s3 uuid; s4 uuid; s5 uuid;
   id1 uuid; id2 uuid; id4 uuid;
   code1 text; code2 text;
-  n int; st text; v_actor uuid;
+  n int; base int; st text; v_actor uuid;
+  v_ok boolean;
   t1 timestamptz;
   r text := E'\n';
 begin
@@ -32,6 +40,9 @@ begin
 
   ---------------------------------------------------------------- A. visitor (anon)
   reset role;
+  -- how many appointments already exist (real data), so later counts do not assume an empty table
+  select count(*) into base from public.appointments;
+
   perform set_config('request.jwt.claims', '{"role":"anon"}', true);
   set local role anon;
 
@@ -57,6 +68,14 @@ begin
   exception when others then
     r := r || case when sqlstate = '42501' then 'PASS  ' else 'FAIL  ' end
            || 'visitor cannot read appointments (' || sqlerrm || E')\n';
+  end;
+
+  begin
+    select count(*) into n from public.rate_limit_events;
+    r := r || E'FAIL  visitor read the rate_limit_events table\n';
+  exception when others then
+    r := r || case when sqlstate = '42501' then 'PASS  ' else 'FAIL  ' end
+           || 'visitor cannot read rate_limit_events (' || sqlerrm || E')\n';
   end;
 
   begin
@@ -142,36 +161,46 @@ begin
     r := r || 'FAIL  booking lookup: ' || sqlerrm || E'\n';
   end;
 
+  -- 0009: a wrong code or phone returns NO ROW (not an error), so the failed try can be counted
   begin
-    perform * from public.get_booking(code1, '09189998888');
-    r := r || E'FAIL  lookup worked with the wrong phone\n';
+    select count(*) into n from public.get_booking(code1, '09189998888');
+    r := r || case when n = 0 then 'PASS  ' else 'FAIL  ' end
+           || 'lookup with the wrong phone returns no row (saw ' || n || E')\n';
   exception when others then
-    r := r || case when sqlerrm like '%Booking not found%' then 'PASS  ' else 'FAIL  ' end
-           || 'lookup with the wrong phone fails (' || sqlerrm || E')\n';
+    r := r || 'FAIL  lookup with the wrong phone: ' || sqlerrm || E'\n';
   end;
 
   begin
-    perform * from public.get_booking('ZZZZZZZZ', '09171234567');
-    r := r || E'FAIL  lookup worked with an unknown code\n';
+    select count(*) into n from public.get_booking('ZZZZZZZZ', '09171234567');
+    r := r || case when n = 0 then 'PASS  ' else 'FAIL  ' end
+           || 'lookup with an unknown code returns no row, same as a wrong phone (saw ' || n || E')\n';
   exception when others then
-    r := r || case when sqlerrm like '%Booking not found%' then 'PASS  ' else 'FAIL  ' end
-           || 'lookup with an unknown code gives the same error (' || sqlerrm || E')\n';
+    r := r || 'FAIL  lookup with an unknown code: ' || sqlerrm || E'\n';
+  end;
+
+  -- 0009: cancel_booking returns false when code + phone do not match
+  begin
+    v_ok := public.cancel_booking(code1, '09189998888');
+    r := r || case when v_ok is false then 'PASS  ' else 'FAIL  ' end
+           || 'cancel with the wrong phone returns false (got ' || coalesce(v_ok::text, 'null') || E')\n';
+  exception when others then
+    r := r || 'FAIL  cancel with the wrong phone: ' || sqlerrm || E'\n';
   end;
 
   begin
-    perform public.cancel_booking(code1, '09189998888');
-    r := r || E'FAIL  cancelled with the wrong phone\n';
+    select count(*) into n from public.get_booking(code1, '09171234567') where status = 'PENDING';
+    r := r || case when n = 1 then 'PASS  ' else 'FAIL  ' end
+           || 'the booking is still PENDING after a failed cancel attempt' || E'\n';
   exception when others then
-    r := r || case when sqlerrm like '%Booking not found%' then 'PASS  ' else 'FAIL  ' end
-           || 'cancel with the wrong phone fails (' || sqlerrm || E')\n';
+    r := r || 'FAIL  booking status after failed cancel: ' || sqlerrm || E'\n';
   end;
 
   begin
-    perform public.cancel_booking(code1, '+639171234567');
+    v_ok := public.cancel_booking(code1, '+639171234567');
     select count(*) into n
     from public.get_available_slots(t1 - interval '1 minute', t1 + interval '1 minute');
-    r := r || case when n = 1 then 'PASS  ' else 'FAIL  ' end
-           || 'guest can cancel with code + phone, and the slot opens up again' || E'\n';
+    r := r || case when v_ok is true and n = 1 then 'PASS  ' else 'FAIL  ' end
+           || 'guest can cancel with code + phone (returns true), and the slot opens up again' || E'\n';
   exception when others then
     r := r || 'FAIL  guest cancel: ' || sqlerrm || E'\n';
   end;
@@ -238,10 +267,11 @@ begin
       r := r || 'FAIL  admin using the booking form: ' || sqlerrm || E'\n';
     end;
 
+    -- this run created 4 rows (id1 cancelled, id2, the 3rd booking, and the admin preview) on top of what already existed
     begin
       select count(*) into n from public.appointments;
-      r := r || case when n = 4 then 'PASS  ' else 'FAIL  ' end
-             || 'admin sees all appointments (expected 4, saw ' || n || E')\n';
+      r := r || case when n = base + 4 then 'PASS  ' else 'FAIL  ' end
+             || 'admin sees all appointments (expected ' || (base + 4) || ', saw ' || n || E')\n';
     exception when others then
       r := r || 'FAIL  admin read of appointments: ' || sqlerrm || E'\n';
     end;
@@ -260,8 +290,8 @@ begin
     begin
       select count(*) into n from public.appointments
       where guest_name is not null and guest_phone is not null and reference_code is not null;
-      r := r || case when n = 4 then 'PASS  ' else 'FAIL  ' end
-             || 'admin can read guest name, phone and reference code' || E'\n';
+      r := r || case when n = base + 4 then 'PASS  ' else 'FAIL  ' end
+             || 'admin can read guest name, phone and reference code (expected ' || (base + 4) || ', saw ' || n || E')\n';
     exception when others then
       r := r || 'FAIL  admin reading guest fields: ' || sqlerrm || E'\n';
     end;
