@@ -116,7 +116,18 @@ export default function Appointment() {
   const userPickedDate = useRef(false);
   const [confirmation, setConfirmation] = useState(null); // { reference } after a successful request
 
-  const service = services.find((item) => item.id === serviceId) ?? services[0] ?? null;
+  // With nothing picked yet, the first service is pre-selected. If the picked service is no longer
+  // offered (the shop deactivated it), do NOT quietly switch to a different one: clear it and ask.
+  const pickedService = services.find((item) => item.id === serviceId) ?? null;
+  const pickedGone = Boolean(serviceId) && !servicesLoading && !servicesError && !pickedService;
+  const service = pickedService ?? (serviceId === null ? services[0] ?? null : null);
+
+  useEffect(() => {
+    if (pickedGone) {
+      setServiceId("");
+      setNotice("That piercing is no longer available. Please choose another one.");
+    }
+  }, [pickedGone]);
 
   // Open slots grouped by Asia/Manila date, each day sorted by time.
   const slotsByDate = useMemo(() => {
@@ -221,6 +232,8 @@ export default function Appointment() {
       setSelectedSlotId("");
     } else {
       setNotice(result.message);
+      // if the service was just deactivated, refresh the list so it disappears from the options
+      if (/service is not available/i.test(result.message || "")) reloadServices();
     }
     reloadSlots(); // refresh so a slot that was just taken disappears
   };

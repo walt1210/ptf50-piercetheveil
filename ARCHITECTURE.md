@@ -4,7 +4,7 @@ Repo: cathtayer/ptf50-piercetheveil | Branches: main, backend, admin-dashboard
 
 ## Stack (all free tier)
 React 18 + Vite 6, Tailwind CSS 3, React Router 7, lucide-react. Use npm (not pnpm).
-Fonts: Cormorant Garamond (serif) + DM Sans (sans). Theme tokens: brand-black, brand-dark, brand-blood, brand-cream, brand-muted, brand-gold.
+Fonts: Blackadder ITC (serif, local files in src/assets/fonts) + DM Sans (sans, Google Fonts). Theme tokens: brand-black, brand-dark, brand-blood, brand-cream, brand-muted, brand-gold.
 Backend: Supabase (Postgres, Auth, RLS, Storage), project "piercewise".
 Hosting: Vercel Hobby, https://ptf50-piercetheveil.vercel.app, deployed from the local folder with `npx vercel --prod`
 (repo owner differs from the Vercel account, so Git auto-deploy is not used). Build command `npm run build`; vercel.json = SPA rewrite.
@@ -16,7 +16,7 @@ AI: Transformers.js 4.2.0 in the browser, model Xenova/all-MiniLM-L6-v2 (dtype q
 - context/AuthContext.jsx + hooks/useAuth.js -> { user, profile, isAdmin, loading }
 - services/supabase.js (client), services/api.js (toUserMessage, formatManila)
 - styles/index.css (global stylesheet; @import fonts first, then @tailwind lines)
-- features/jewelry/jewelryFilters.js (pure catalog filters) | components/client: ProductCard, PageHero, Navbar, Footer
+- features/jewelry/jewelryFilters.js (pure catalog filters; public pages pass onlyActive:true to listJewelry/getJewelry so hidden pieces never show, even to a logged-in admin) | components/client: ProductCard, PageHero, Navbar, Footer
 - features/authentication/authService.js (admin sign in/out + profile only; customers are guests)
 - features/jewelry/jewelryService.js (catalog, admin CRUD, placements, image upload)
 - features/appointments/appointmentService.js (services, slots, booking, admin actions, schedule/service management,
@@ -30,6 +30,8 @@ AI: Transformers.js 4.2.0 in the browser, model Xenova/all-MiniLM-L6-v2 (dtype q
 - Schedule: availability_slots via listSlots/createSlot/setSlotBlocked. Hours are derived from slots (no hours table);
   a date is "blocked" when all its slots are blocked.
 - Services: listAllServices/createService/updateService (is_active toggle), listPiercingTypes for the type dropdown.
+  The Home price guide (components/client/ServicesGuide) reads the ACTIVE services via listServices + features/appointments/serviceGuide.js;
+  data/studioContent.js only supplies category names/order and a fallback if loading fails. The gallery price-list images are still static.
 - Customers ("clients"): listCustomers groups appointments by guest_phone (name/email from the latest booking) with request and COMPLETED-visit counts.
 
 ## Data model (UUID PKs, UTC timestamps, display Asia/Manila)

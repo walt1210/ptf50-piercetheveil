@@ -27,7 +27,7 @@ export async function recommend({ piercingTypeId, budget, style, material, color
   const maxPrice = Number.isFinite(budgetNum) && budgetNum > 0 ? budgetNum : undefined;
 
   const [eligible, types] = await Promise.all([
-    listJewelry({ piercingTypeId, maxPrice, inStockOnly: true }),
+    listJewelry({ piercingTypeId, maxPrice, inStockOnly: true, onlyActive: true }),
     listPiercingTypes(),
   ]);
   const piercingName = types.find((t) => t.id === piercingTypeId)?.name;

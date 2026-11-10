@@ -20,7 +20,7 @@ export default function Catalog() {
     let cancelled = false;
     setLoading(true);
     setError("");
-    Promise.all([listJewelry(), listPiercingTypes()])
+    Promise.all([listJewelry({ onlyActive: true }), listPiercingTypes()])
       .then(([jewelry, piercingTypes]) => {
         if (cancelled) return;
         setItems(jewelry ?? []);

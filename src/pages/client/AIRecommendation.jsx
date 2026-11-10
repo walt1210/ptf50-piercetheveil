@@ -24,7 +24,7 @@ export default function AIRecommendation() {
 
   useEffect(() => {
     let cancelled = false;
-    Promise.all([listPiercingTypes(), listJewelry()])
+    Promise.all([listPiercingTypes(), listJewelry({ onlyActive: true })])
       .then(([t, j]) => {
         if (cancelled) return;
         setTypes(t ?? []);

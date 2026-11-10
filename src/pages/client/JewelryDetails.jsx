@@ -16,7 +16,7 @@ export default function JewelryDetails() {
     setLoading(true);
     setError("");
     setNotFound(false);
-    getJewelry(id)
+    getJewelry(id, { onlyActive: true })
       .then((data) => !cancelled && setItem(data))
       .catch((e) => {
         if (cancelled) return;

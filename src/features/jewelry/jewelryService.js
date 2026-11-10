@@ -8,8 +8,10 @@ export async function listPiercingTypes() {
   return data;
 }
 
-// Customers automatically see only active items (RLS); admins see everything.
-export async function listJewelry({ search, material, style, maxPrice, piercingTypeId, inStockOnly } = {}) {
+// Database rules (RLS) already hide inactive items from visitors, but admins can read everything,
+// including when they browse the public site while logged in. Public pages pass onlyActive: true
+// so a hidden piece never shows to anyone there. The admin page leaves it off to see all items.
+export async function listJewelry({ search, material, style, maxPrice, piercingTypeId, inStockOnly, onlyActive = false } = {}) {
   const byPlacement = Boolean(piercingTypeId);
   let q = supabase
     .from("jewelry")
@@ -29,6 +31,7 @@ export async function listJewelry({ search, material, style, maxPrice, piercingT
     const safe = search.trim().replace(/[,()%._:*\\"'`]/g, " ").replace(/\s+/g, " ").trim().slice(0, 80);
     q = q.or(`name.ilike.%${safe}%,description.ilike.%${safe}%`);
   }
+  if (onlyActive) q = q.eq("is_active", true);
   if (material) q = q.eq("material", material);
   if (style) q = q.eq("style", style);
   if (maxPrice != null && maxPrice !== "") q = q.lte("price", Number(maxPrice));
@@ -39,12 +42,13 @@ export async function listJewelry({ search, material, style, maxPrice, piercingT
   return data;
 }
 
-export async function getJewelry(id) {
-  const { data, error } = await supabase
+export async function getJewelry(id, { onlyActive = false } = {}) {
+  let q = supabase
     .from("jewelry")
     .select("*, jewelry_compatibility(piercing_type_id, approved, piercing_types(name))")
-    .eq("id", id)
-    .single();
+    .eq("id", id);
+  if (onlyActive) q = q.eq("is_active", true);
+  const { data, error } = await q.single();
   if (error) throw error;
   return data;
 }
