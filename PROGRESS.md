@@ -36,6 +36,7 @@
 - DEPLOYED: https://ptf50-piercetheveil.vercel.app (Vercel Hobby, account walt1210s-projects, via CLI). Opens and works on a phone.
 - README, .env.example, .gitignore (ignores .env, .pnpm-store, public/ort, .vercel)
 - Evaluation kit drafted: PierceWise_Evaluation_Kit.xlsx (18 cases C01-C18 incl. 2 Taglish, marking sheet template)
+- Try-on now supports all 20 placements except navel (placements.js + drawJewelry.js); stylist preselects the try-on placement; ear positions estimated, not browser-verified.
 
 - REVIEW FIXES (2026-11-09, build OK; 0009 tested on a local Postgres, 27/27 checks pass; NOT yet run on the live DB or clicked through in a browser):
   /catalog and /catalog/:id routes added (product cards used to bounce to Home) + "Jewelry" link in the navbar; catalog search strips more

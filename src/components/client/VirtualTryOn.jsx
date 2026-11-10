@@ -1,4 +1,15 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { drawPiece } from "../../features/tryon/drawJewelry";
+import {
+  DEFAULT_PLACEMENT_ID,
+  SHAPES,
+  buildPieces,
+  getPlacement,
+  groupedPlacements,
+  makeFace,
+  placementFromName,
+  placementNote,
+} from "../../features/tryon/placements";
 
 const MEDIAPIPE_VERSION = "0.10.21";
 const WASM_ROOT = `https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@${MEDIAPIPE_VERSION}/wasm`;
@@ -26,79 +37,14 @@ async function loadFaceLandmarker(runningMode = "IMAGE") {
   return faceLandmarkerPromises[runningMode];
 }
 
-function drawStud(context, x, y, radius, finish) {
-  const light = finish === "gold" ? "#ffe2a4" : "#ffffff";
-  const dark = finish === "gold" ? "#9d5d14" : "#666a70";
-  const gradient = context.createRadialGradient(x - radius * 0.35, y - radius * 0.4, radius * 0.1, x, y, radius);
-  gradient.addColorStop(0, light);
-  gradient.addColorStop(0.5, finish === "gold" ? "#e8b952" : "#cdd3d9");
-  gradient.addColorStop(1, dark);
-  context.save();
-  context.shadowColor = "rgba(0, 0, 0, 0.55)";
-  context.shadowBlur = radius * 0.8;
-  context.fillStyle = gradient;
-  context.beginPath();
-  context.arc(x, y, radius, 0, Math.PI * 2);
-  context.fill();
-  context.restore();
+// Landmarks are mirrored for the live (selfie) view so "left/right" always matches what the person sees.
+function mirrorLandmarks(landmarks, mirror) {
+  return mirror ? landmarks.map((point) => ({ ...point, x: 1 - point.x })) : landmarks;
 }
 
-function drawHoop(context, x, y, radius, finish) {
-  context.save();
-  context.strokeStyle = finish === "gold" ? "#e9b94e" : "#e6ebef";
-  context.lineWidth = Math.max(2, radius * 0.3);
-  context.shadowColor = "rgba(0, 0, 0, 0.55)";
-  context.shadowBlur = radius * 0.55;
-  context.beginPath();
-  context.ellipse(x, y + radius * 0.7, radius * 0.82, radius * 1.3, 0, 0, Math.PI * 2);
-  context.stroke();
-  context.restore();
-}
-
-function drawDrop(context, x, y, radius, finish) {
-  const color = finish === "gold" ? "#e9b94e" : "#e6ebef";
-  context.save();
-  context.strokeStyle = color;
-  context.fillStyle = color;
-  context.lineWidth = Math.max(2, radius * 0.22);
-  context.shadowColor = "rgba(0, 0, 0, 0.5)";
-  context.shadowBlur = radius * 0.55;
-  context.beginPath();
-  context.moveTo(x, y);
-  context.lineTo(x, y + radius * 1.55);
-  context.stroke();
-  context.beginPath();
-  context.moveTo(x, y + radius * 1.45);
-  context.lineTo(x + radius * 0.62, y + radius * 2.15);
-  context.lineTo(x, y + radius * 2.8);
-  context.lineTo(x - radius * 0.62, y + radius * 2.15);
-  context.closePath();
-  context.fill();
-  context.restore();
-}
-
-function drawJewelry(context, style, x, y, radius, finish) {
-  if (style === "hoop") drawHoop(context, x, y, radius, finish);
-  else if (style === "drop") drawDrop(context, x, y, radius, finish);
-  else drawStud(context, x, y, radius, finish);
-}
-
-function anchorsFromLandmarks(landmarks, mirror = false) {
-  const transform = (point) => ({ ...point, x: mirror ? 1 - point.x : point.x });
-  const points = landmarks.map(transform);
-  const xs = points.map((point) => point.x);
-  const ys = points.map((point) => point.y);
-  const sides = [points[234], points[454]].sort((a, b) => a.x - b.x);
-  return {
-    left: sides[0],
-    right: sides[1],
-    faceWidth: Math.max(...xs) - Math.min(...xs),
-    faceHeight: Math.max(...ys) - Math.min(...ys),
-  };
-}
-
-function paintPreview(canvas, source, anchors, settings, mirror = false) {
-  if (!canvas || !source) return;
+// Draws the frame, then the jewelry. Returns a hint (e.g. "open your mouth") or "".
+function paintPreview(canvas, source, landmarks, settings, mirror = false) {
+  if (!canvas || !source) return "";
   const context = canvas.getContext("2d");
   context.clearRect(0, 0, canvas.width, canvas.height);
   context.save();
@@ -108,64 +54,75 @@ function paintPreview(canvas, source, anchors, settings, mirror = false) {
   }
   context.drawImage(source, 0, 0, canvas.width, canvas.height);
   context.restore();
-  if (!anchors) return;
+  if (!landmarks) return "";
 
-  const offsetY = (settings.vertical / 100) * anchors.faceHeight;
-  const offsetX = (settings.spread / 100) * anchors.faceWidth;
-  const radius = Math.max(5, anchors.faceWidth * 0.035 * Number(settings.size));
-  const left = {
-    x: (anchors.left.x - offsetX) * canvas.width,
-    y: (anchors.left.y + offsetY) * canvas.height,
-  };
-  const right = {
-    x: (anchors.right.x + offsetX) * canvas.width,
-    y: (anchors.right.y + offsetY) * canvas.height,
-  };
-
-  if (settings.side === "both" || settings.side === "left") {
-    drawJewelry(context, settings.style, left.x, left.y, radius, settings.finish);
-  }
-  if (settings.side === "both" || settings.side === "right") {
-    drawJewelry(context, settings.style, right.x, right.y, radius, settings.finish);
-  }
+  const face = makeFace(landmarks, canvas.width, canvas.height);
+  const { pieces, hint } = buildPieces(getPlacement(settings.placement), face, settings);
+  pieces.forEach((piece) => drawPiece(context, piece, settings.finish));
+  return hint;
 }
 
-function presetStyle(name = "") {
-  const value = name.toLowerCase();
-  if (value.includes("snake bites") || value.includes("eyebrow")) return "stud";
-  if (value.includes("rook") || value.includes("conch") || value.includes("lobe")) return "hoop";
-  return "stud";
-}
-
-export default function VirtualTryOn({ preset }) {
+// preset = a portfolio sample picked in the stylist results; typeName = the placement chosen in the stylist form.
+export default function VirtualTryOn({ preset, typeName }) {
   const imageRef = useRef(null);
   const videoRef = useRef(null);
   const canvasRef = useRef(null);
   const streamRef = useRef(null);
   const animationFrameRef = useRef(null);
   const cameraActiveRef = useRef(false);
-  const liveAnchorsRef = useRef(null);
+  const liveLandmarksRef = useRef(null);
+  const hintRef = useRef("");
   const lastDetectionRef = useRef(0);
   const settingsRef = useRef(null);
   const [imageUrl, setImageUrl] = useState("");
-  const [anchors, setAnchors] = useState(null);
+  const [landmarks, setLandmarks] = useState(null);
+  const [hint, setHint] = useState("");
   const [status, setStatus] = useState("");
   const [error, setError] = useState("");
   const [detecting, setDetecting] = useState(false);
   const [cameraActive, setCameraActive] = useState(false);
   const [cameraLoading, setCameraLoading] = useState(false);
   const [finish, setFinish] = useState("silver");
-  const [style, setStyle] = useState("stud");
+  const [placementId, setPlacementId] = useState(DEFAULT_PLACEMENT_ID);
+  const [style, setStyle] = useState(getPlacement(DEFAULT_PLACEMENT_ID).defaultShape);
   const [side, setSide] = useState("both");
   const [size, setSize] = useState(1);
-  const [vertical, setVertical] = useState(7);
-  const [spread, setSpread] = useState(5);
+  const [vertical, setVertical] = useState(0);
+  const [spread, setSpread] = useState(0);
 
-  settingsRef.current = { finish, style, side, size, vertical, spread };
+  const placement = getPlacement(placementId);
+  settingsRef.current = { placement: placementId, finish, style, side, size, vertical, spread };
+
+  // Switching placement resets the shape and nudges, so the new piercing starts from its natural spot.
+  const choosePlacement = useCallback((id) => {
+    const next = getPlacement(id);
+    if (next.unsupported) {
+      setError(next.unsupported);
+      return;
+    }
+    setError("");
+    setPlacementId(next.id);
+    setStyle(next.defaultShape);
+    setSide(next.sideMode === "single" ? "right" : "both");
+    setVertical(0);
+    setSpread(0);
+  }, []);
 
   useEffect(() => {
-    if (preset?.title) setStyle(presetStyle(preset.title));
-  }, [preset]);
+    const match = placementFromName(preset?.title);
+    if (match) choosePlacement(match.id);
+  }, [preset, choosePlacement]);
+
+  useEffect(() => {
+    const match = placementFromName(typeName);
+    if (match) choosePlacement(match.id);
+  }, [typeName, choosePlacement]);
+
+  const showHint = useCallback((next) => {
+    if (hintRef.current === next) return;
+    hintRef.current = next;
+    setHint(next);
+  }, []);
 
   useEffect(() => () => {
     if (imageUrl) URL.revokeObjectURL(imageUrl);
@@ -182,8 +139,8 @@ export default function VirtualTryOn({ preset }) {
     const image = imageRef.current;
     const canvas = canvasRef.current;
     if (!image?.complete || !image.naturalWidth || !canvas) return;
-    paintPreview(canvas, image, anchors, { finish, style, side, size, vertical, spread });
-  }, [anchors, finish, side, size, spread, style, vertical]);
+    showHint(paintPreview(canvas, image, landmarks, { placement: placementId, finish, style, side, size, vertical, spread }));
+  }, [landmarks, placementId, finish, side, size, spread, style, vertical, showHint]);
 
   useEffect(() => {
     renderPreview();
@@ -195,7 +152,7 @@ export default function VirtualTryOn({ preset }) {
     const scale = Math.min(1, 1200 / image.naturalWidth);
     canvas.width = Math.round(image.naturalWidth * scale);
     canvas.height = Math.round(image.naturalHeight * scale);
-    setAnchors(null);
+    setLandmarks(null);
     setStatus("Photo ready. Run face detection to place the preview.");
     requestAnimationFrame(renderPreview);
   };
@@ -207,7 +164,8 @@ export default function VirtualTryOn({ preset }) {
     streamRef.current?.getTracks().forEach((track) => track.stop());
     streamRef.current = null;
     if (videoRef.current) videoRef.current.srcObject = null;
-    liveAnchorsRef.current = null;
+    liveLandmarksRef.current = null;
+    showHint("");
     setCameraActive(false);
     setCameraLoading(false);
     if (imageUrl) requestAnimationFrame(renderPreview);
@@ -227,7 +185,7 @@ export default function VirtualTryOn({ preset }) {
     setCameraLoading(true);
     setError("");
     setStatus("Waiting for camera permission…");
-    setAnchors(null);
+    setLandmarks(null);
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
         audio: false,
@@ -267,7 +225,7 @@ export default function VirtualTryOn({ preset }) {
           try {
             const result = landmarker.detectForVideo(videoRef.current, now);
             const landmarks = result.faceLandmarks?.[0];
-            liveAnchorsRef.current = landmarks?.length ? anchorsFromLandmarks(landmarks, true) : null;
+            liveLandmarksRef.current = landmarks?.length ? mirrorLandmarks(landmarks, true) : null;
             if (landmarks?.length && !faceSeen) {
               faceSeen = true;
               setStatus("Face found — the live jewelry preview is tracking your movement.");
@@ -276,7 +234,7 @@ export default function VirtualTryOn({ preset }) {
             console.warn("A live face-landmark frame was skipped:", cause);
           }
         }
-        paintPreview(canvasRef.current, videoRef.current, liveAnchorsRef.current, settingsRef.current, true);
+        showHint(paintPreview(canvasRef.current, videoRef.current, liveLandmarksRef.current, settingsRef.current, true));
         animationFrameRef.current = requestAnimationFrame(renderLiveFrame);
       };
       renderLiveFrame();
@@ -299,7 +257,7 @@ export default function VirtualTryOn({ preset }) {
     if (cameraActive || cameraLoading) stopCamera({ keepStatus: true });
     setError("");
     setStatus("");
-    setAnchors(null);
+    setLandmarks(null);
     if (!file.type.startsWith("image/")) {
       setError("Please choose an image file.");
       return;
@@ -327,10 +285,10 @@ export default function VirtualTryOn({ preset }) {
         throw new Error("No face was found. Try a clear, front-facing photo with both sides of the face visible.");
       }
 
-      setAnchors(anchorsFromLandmarks(landmarks));
+      setLandmarks(mirrorLandmarks(landmarks, false));
       setStatus("Face landmarks found. Adjust the preview controls until the jewelry sits where you want it.");
     } catch (cause) {
-      setAnchors(null);
+      setLandmarks(null);
       setStatus("");
       setError(cause?.message || "The face model could not load. Check your connection and try again.");
     } finally {
@@ -346,7 +304,7 @@ export default function VirtualTryOn({ preset }) {
           <h2 id="try-on-title">See the mood <em>on you.</em></h2>
         </div>
         <p>
-          Use the front camera for a live mirror or upload a clear photo. Face landmarks are detected in your browser, then a movable jewelry sketch is layered onto the preview.
+          Pick a placement, then use the front camera for a live mirror or upload a clear, front-facing photo. Face landmarks are detected in your browser, then a movable jewelry sketch is layered onto the preview: ear, brow, nose, lip and tongue placements.
         </p>
       </div>
 
@@ -362,7 +320,7 @@ export default function VirtualTryOn({ preset }) {
           {imageUrl && <img ref={imageRef} src={imageUrl} alt="Uploaded preview source" onLoad={onImageLoad} hidden />}
           <video ref={videoRef} muted playsInline hidden aria-label="Live front camera source" />
           {(imageUrl || cameraActive || cameraLoading) && (
-            <canvas ref={canvasRef} aria-label={cameraActive ? "Live camera with a visual earring preview" : "Customer photo with a visual earring preview"} />
+            <canvas ref={canvasRef} aria-label={cameraActive ? "Live camera with a visual jewelry preview" : "Customer photo with a visual jewelry preview"} />
           )}
         </div>
 
@@ -385,11 +343,22 @@ export default function VirtualTryOn({ preset }) {
           </div>
 
           <div className="try-on__control-grid">
+            <label className="field try-on__placement"><span>Piercing placement</span>
+              <select value={placementId} onChange={(event) => choosePlacement(event.target.value)}>
+                {groupedPlacements().map((group) => (
+                  <optgroup key={group.label} label={group.label}>
+                    {group.items.map((item) => (
+                      <option key={item.id} value={item.id} disabled={Boolean(item.unsupported)}>
+                        {item.label}{item.unsupported ? " (can't preview on a face)" : ""}
+                      </option>
+                    ))}
+                  </optgroup>
+                ))}
+              </select>
+            </label>
             <label className="field"><span>Jewelry shape</span>
               <select value={style} onChange={(event) => setStyle(event.target.value)}>
-                <option value="stud">Stud</option>
-                <option value="hoop">Hoop</option>
-                <option value="drop">Drop</option>
+                {placement.shapes.map((shape) => <option key={shape} value={shape}>{SHAPES[shape]}</option>)}
               </select>
             </label>
             <label className="field"><span>Finish</span>
@@ -398,29 +367,35 @@ export default function VirtualTryOn({ preset }) {
                 <option value="gold">Gold</option>
               </select>
             </label>
-            <label className="field"><span>Photo side</span>
-              <select value={side} onChange={(event) => setSide(event.target.value)}>
-                <option value="both">Both sides</option>
-                <option value="left">Photo left</option>
-                <option value="right">Photo right</option>
-              </select>
-            </label>
+            {placement.sideMode !== "none" && (
+              <label className="field"><span>Photo side</span>
+                <select value={side} onChange={(event) => setSide(event.target.value)}>
+                  {placement.sideMode === "pair" && <option value="both">Both sides</option>}
+                  <option value="left">Photo left</option>
+                  <option value="right">Photo right</option>
+                </select>
+              </label>
+            )}
           </div>
 
           <label className="try-on__range"><span>Jewelry size</span>
-            <input type="range" min="0.55" max="2" step="0.05" value={size} onChange={(event) => setSize(event.target.value)} />
+            <input type="range" min="0.55" max="2" step="0.05" value={size} onChange={(event) => setSize(Number(event.target.value))} />
           </label>
-          <label className="try-on__range"><span>Move up / down</span>
+          <label className="try-on__range"><span>Move down / up</span>
             <input type="range" min="-15" max="30" step="1" value={vertical} onChange={(event) => setVertical(Number(event.target.value))} />
           </label>
-          <label className="try-on__range"><span>Move outward / inward</span>
-            <input type="range" min="-12" max="25" step="1" value={spread} onChange={(event) => setSpread(Number(event.target.value))} />
-          </label>
+          {!placement.midline && (
+            <label className="try-on__range"><span>Move outward / inward</span>
+              <input type="range" min="-12" max="25" step="1" value={spread} onChange={(event) => setSpread(Number(event.target.value))} />
+            </label>
+          )}
 
           <button className="button button--dark" type="button" onClick={detectFace} disabled={!imageUrl || detecting || cameraActive || cameraLoading}>
-            {detecting ? "Detecting face…" : anchors ? "Detect again" : "Detect & preview"}
+            {detecting ? "Detecting face…" : landmarks ? "Detect again" : "Detect & preview"}
           </button>
           {status && <p className="try-on__status" role="status">{status}</p>}
+          {hint && <p className="try-on__status" role="status">{hint}</p>}
+          {placementNote(placement) && <p className="try-on__status">{placementNote(placement)}</p>}
           {error && <p className="try-on__error" role="alert">{error}</p>}
           <p className="try-on__notice">
             Camera permission is requested only when you tap “Use live camera.” Photos and frames stay on this device. Visual styling preview only: landmarks approximate position and do not assess anatomy, healing, or whether a piercing is safe. Your piercer makes the final placement decision.

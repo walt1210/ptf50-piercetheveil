@@ -75,7 +75,7 @@ export default function AIRecommendation() {
   const placementName = types.find((t) => t.id === form.piercingTypeId)?.name;
 
   const trySample = (sample) => {
-    setSelectedLook(sample);
+    setSelectedLook({ ...sample }); // new object each click so picking the same look again re-applies it
     requestAnimationFrame(() => document.getElementById("virtual-try-on")?.scrollIntoView({ behavior: "smooth", block: "start" }));
   };
 
@@ -219,7 +219,7 @@ export default function AIRecommendation() {
           </div>
         )}
 
-        <VirtualTryOn preset={selectedLook} />
+        <VirtualTryOn preset={selectedLook} typeName={placementName} />
       </section>
     </main>
   );
