@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { galleryItems } from "../../data/studioContent";
 
-const sampleModules = import.meta.glob("../../assets/images/*.png", {
+const sampleModules = import.meta.glob("../../assets/images/*.webp", {
   eager: true,
   import: "default",
 });
@@ -34,7 +34,7 @@ const styleAliases = {
 function getStyle(path) {
   const filename = path.split("/").pop();
   const normalized = filename
-    .replace(/\.png$/i, "")
+    .replace(/\.(png|webp)$/i, "")
     .replace(/\s*\(\d+\)$/i, "")
     .trim()
     .toLowerCase()

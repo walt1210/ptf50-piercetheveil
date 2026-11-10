@@ -91,6 +91,7 @@ const careGuideEntries = [
           "Arrive with clean skin and no products around the piercing area.",
           "Ask about healing time, aftercare, jewelry, and placement limitations.",
           "Stay open to alternative placements that better suit your anatomy.",
+          "Take your time deciding and make sure you are comfortable with your choice.",
         ],
       },
       {

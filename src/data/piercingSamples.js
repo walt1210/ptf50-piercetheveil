@@ -1,4 +1,4 @@
-const sampleModules = import.meta.glob("../assets/images/*.png", {
+const sampleModules = import.meta.glob("../assets/images/*.webp", {
   eager: true,
   import: "default",
 });
@@ -69,10 +69,13 @@ const SAMPLE_META = {
   },
 };
 
+// "upperlobes.webp" (no space) is the same placement as "upper lobes"
+SAMPLE_META.upperlobes = SAMPLE_META["upper lobes"];
+
 function normalize(value = "") {
   return value
     .toLowerCase()
-    .replace(/\.png$/i, "")
+    .replace(/\.(png|webp)$/i, "")
     .replace(/\s*\(\d+\)$/i, "")
     .trim()
     .replace(/\s+/g, " ");
