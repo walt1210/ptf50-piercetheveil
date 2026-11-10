@@ -15,6 +15,11 @@ export const SHAPES = {
 
 const ALL_SINGLE = ["stud", "hoop"];
 
+// Navel sits this far from the shoulder midpoint (0) to the hip midpoint (1). Easy to tweak.
+export const NAVEL_TORSO_FRACTION = 0.62;
+export const NAVEL_HINT = "Step back and show your stomach in the camera.";
+const NAVEL_MIN_VISIBILITY = 0.5; // pose landmarks below this are treated as not in view
+
 // t  = how far down the ear (0 = eyebrow height, 1 = nose-base height)
 // ox = how far outward from the face edge, as a fraction of face width
 const EAR = {
@@ -56,7 +61,7 @@ export const PLACEMENTS = [
   { id: "dolphin-bites", label: "Dolphin bites", group: "Face & lip", kind: "lip", names: ["dolphin bites", "dolphin bite"], shapes: ["stud", "hoop"], defaultShape: "stud", hoopMode: "ring", midline: true, sideMode: "none", scale: 0.75 },
   { id: "tongue", label: "Tongue", group: "Face & lip", kind: "tongue", names: ["tongue"], shapes: ["stud"], defaultShape: "stud", midline: true, sideMode: "none", scale: 0.9, note: "Tongue previews need your mouth open wide so the camera can see the tongue." },
 
-  { id: "navel", label: "Navel", group: "Body", kind: "none", names: ["navel", "belly button"], shapes: ["stud"], defaultShape: "stud", unsupported: "A navel piercing can't be previewed from a face photo or camera." },
+  { id: "navel", label: "Navel", group: "Body", kind: "navel", names: ["navel", "belly button"], shapes: ["stud", "hoop", "drop"], defaultShape: "stud", hoopMode: "hang", midline: true, sideMode: "none", scale: 0.4, note: "Navel previews are estimated from your shoulders and hips (body pose), so show your whole torso. Use the sliders to line it up; your piercer decides the exact spot." },
 ];
 
 export const DEFAULT_PLACEMENT_ID = "lobe";
@@ -109,6 +114,23 @@ export function makeFace(landmarks, W, H) {
   const browY = lerp(P(105), P(334), 0.5);
   const noseBase = P(2);
   return { P, fw, fh, earL, earR, e, d, browY, noseBase, centerX: (earL.x + earR.x) / 2 };
+}
+
+// Pose landmarks (MediaPipe Pose: 11/12 shoulders, 23/24 hips) -> the same fields buildPieces reads from a face.
+// Returns null when the shoulders and hips are not all clearly in view.
+export function makeBody(landmarks, W, H) {
+  const needed = [11, 12, 23, 24].map((i) => landmarks?.[i]);
+  const inView = needed.every(
+    (p) => p && typeof p.visibility === "number" && p.visibility >= NAVEL_MIN_VISIBILITY && p.x >= 0 && p.x <= 1 && p.y >= 0 && p.y <= 1,
+  );
+  if (!inView) return null;
+  const P = (i) => ({ x: landmarks[i].x * W, y: landmarks[i].y * H });
+  const shoulderMid = lerp(P(11), P(12), 0.5);
+  const hipMid = lerp(P(23), P(24), 0.5);
+  const d = unit(sub(hipMid, shoulderMid)); // down the torso
+  let e = { x: d.y, y: -d.x }; // across the body, display-left to display-right
+  if (e.x < 0) e = mul(e, -1);
+  return { P, fw: len(sub(P(11), P(12))), fh: len(sub(hipMid, shoulderMid)), e, d, shoulderMid, hipMid, centerX: shoulderMid.x };
 }
 
 // the two landmark groups of a symmetric pair, ordered display-left then display-right
@@ -218,6 +240,10 @@ function tongueMarks(f) {
   return { marks: [{ center: lerp(upper, lower, 0.72) }], hint: "" };
 }
 
+function navelMarks(f) {
+  return [{ center: lerp(f.shoulderMid, f.hipMid, NAVEL_TORSO_FRACTION) }];
+}
+
 // Returns { marks: [{ center, ends?, side?, ring? }], hint }. Slider offsets are applied afterwards.
 export function buildMarks(placement, f, { side = "both", size = 1 } = {}) {
   let sides = [-1, 1];
@@ -230,6 +256,7 @@ export function buildMarks(placement, f, { side = "both", size = 1 } = {}) {
     case "lip": return { marks: lipMarks(f, placement, sides), hint: "" };
     case "septum": return { marks: septumMarks(f, Number(size)), hint: "" };
     case "tongue": return tongueMarks(f);
+    case "navel": return { marks: navelMarks(f), hint: "" };
     default: return { marks: [], hint: placement.unsupported ?? "" };
   }
 }

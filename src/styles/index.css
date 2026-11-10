@@ -3391,8 +3391,7 @@ body {
   color: var(--cream);
   min-width: 0;
   padding: 34px;
-  position: sticky;
-  top: 96px;
+  position: relative;
 }
 
 .booking-summary::before {

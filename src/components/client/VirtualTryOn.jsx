@@ -2,10 +2,12 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { drawPiece } from "../../features/tryon/drawJewelry";
 import {
   DEFAULT_PLACEMENT_ID,
+  NAVEL_HINT,
   SHAPES,
   buildPieces,
   getPlacement,
   groupedPlacements,
+  makeBody,
   makeFace,
   placementFromName,
   placementNote,
@@ -14,6 +16,12 @@ import {
 const MEDIAPIPE_VERSION = "0.10.21";
 const WASM_ROOT = `https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@${MEDIAPIPE_VERSION}/wasm`;
 const MODEL_PATH = "https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task";
+const POSE_MODEL_PATH = "https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_lite/float16/1/pose_landmarker_lite.task";
+
+const MODEL_ERROR = "The preview model couldn't load. Check your internet connection and tap Retry.";
+const DRAW_ERROR = "The jewelry couldn't be drawn this time, so only your picture is shown. Try another placement or shape.";
+const MODEL_LOAD = "MODEL_LOAD";
+const NO_SUBJECT = "NO_SUBJECT";
 
 const faceLandmarkerPromises = {};
 
@@ -37,10 +45,47 @@ async function loadFaceLandmarker(runningMode = "IMAGE") {
   return faceLandmarkerPromises[runningMode];
 }
 
+const poseLandmarkerPromises = {};
+
+// Loaded only when the navel placement is used.
+async function loadPoseLandmarker(runningMode = "IMAGE") {
+  if (!poseLandmarkerPromises[runningMode]) {
+    poseLandmarkerPromises[runningMode] = (async () => {
+      const { PoseLandmarker, FilesetResolver } = await import("@mediapipe/tasks-vision");
+      const vision = await FilesetResolver.forVisionTasks(WASM_ROOT);
+      return PoseLandmarker.createFromOptions(vision, {
+        baseOptions: { modelAssetPath: POSE_MODEL_PATH, delegate: "CPU" },
+        runningMode,
+        numPoses: 1,
+        minPoseDetectionConfidence: 0.5,
+        minPosePresenceConfidence: 0.5,
+      });
+    })().catch((error) => {
+      poseLandmarkerPromises[runningMode] = null;
+      throw error;
+    });
+  }
+  return poseLandmarkerPromises[runningMode];
+}
+
+// "pose" = body landmarks (navel), "face" = face landmarks (everything else)
+const modeOf = (placementId) => (getPlacement(placementId).kind === "navel" ? "pose" : "face");
+
+async function getLandmarker(mode, runningMode) {
+  try {
+    return mode === "pose" ? await loadPoseLandmarker(runningMode) : await loadFaceLandmarker(runningMode);
+  } catch (cause) {
+    console.warn("A landmark model failed to load:", cause);
+    throw Object.assign(new Error(MODEL_ERROR), { code: MODEL_LOAD });
+  }
+}
+
 // Landmarks are mirrored for the live (selfie) view so "left/right" always matches what the person sees.
 function mirrorLandmarks(landmarks, mirror) {
   return mirror ? landmarks.map((point) => ({ ...point, x: 1 - point.x })) : landmarks;
 }
+
+let drawWarned = false; // log a drawing failure once, not on every live frame
 
 // Draws the frame, then the jewelry. Returns a hint (e.g. "open your mouth") or "".
 function paintPreview(canvas, source, landmarks, settings, mirror = false) {
@@ -56,10 +101,22 @@ function paintPreview(canvas, source, landmarks, settings, mirror = false) {
   context.restore();
   if (!landmarks) return "";
 
-  const face = makeFace(landmarks, canvas.width, canvas.height);
-  const { pieces, hint } = buildPieces(getPlacement(settings.placement), face, settings);
-  pieces.forEach((piece) => drawPiece(context, piece, settings.finish));
-  return hint;
+  // A failure while placing or drawing drops only the jewelry; the picture stays.
+  context.save();
+  try {
+    const placement = getPlacement(settings.placement);
+    const subject = placement.kind === "navel" ? makeBody(landmarks, canvas.width, canvas.height) : makeFace(landmarks, canvas.width, canvas.height);
+    if (!subject) return NAVEL_HINT;
+    const { pieces, hint } = buildPieces(placement, subject, settings);
+    pieces.forEach((piece) => drawPiece(context, piece, settings.finish));
+    return hint;
+  } catch (cause) {
+    if (!drawWarned) console.warn("Jewelry drawing failed:", cause);
+    drawWarned = true;
+    return DRAW_ERROR;
+  } finally {
+    context.restore();
+  }
 }
 
 // preset = a portfolio sample picked in the stylist results; typeName = the placement chosen in the stylist form.
@@ -76,6 +133,8 @@ export default function VirtualTryOn({ preset, typeName }) {
   const settingsRef = useRef(null);
   const [imageUrl, setImageUrl] = useState("");
   const [landmarks, setLandmarks] = useState(null);
+  const [landmarksMode, setLandmarksMode] = useState(null); // "face" | "pose": which model produced `landmarks`
+  const [retryKind, setRetryKind] = useState(null); // "camera" | "photo": what the Retry button re-runs
   const [hint, setHint] = useState("");
   const [status, setStatus] = useState("");
   const [error, setError] = useState("");
@@ -91,6 +150,7 @@ export default function VirtualTryOn({ preset, typeName }) {
   const [spread, setSpread] = useState(0);
 
   const placement = getPlacement(placementId);
+  const mode = modeOf(placementId);
   settingsRef.current = { placement: placementId, finish, style, side, size, vertical, spread };
 
   // Switching placement resets the shape and nudges, so the new piercing starts from its natural spot.
@@ -101,6 +161,7 @@ export default function VirtualTryOn({ preset, typeName }) {
       return;
     }
     setError("");
+    setRetryKind(null);
     setPlacementId(next.id);
     setStyle(next.defaultShape);
     setSide(next.sideMode === "single" ? "right" : "both");
@@ -139,8 +200,9 @@ export default function VirtualTryOn({ preset, typeName }) {
     const image = imageRef.current;
     const canvas = canvasRef.current;
     if (!image?.complete || !image.naturalWidth || !canvas) return;
-    showHint(paintPreview(canvas, image, landmarks, { placement: placementId, finish, style, side, size, vertical, spread }));
-  }, [landmarks, placementId, finish, side, size, spread, style, vertical, showHint]);
+    const points = landmarksMode === mode ? landmarks : null;
+    showHint(paintPreview(canvas, image, points, { placement: placementId, finish, style, side, size, vertical, spread }));
+  }, [landmarks, landmarksMode, mode, placementId, finish, side, size, spread, style, vertical, showHint]);
 
   useEffect(() => {
     renderPreview();
@@ -184,6 +246,7 @@ export default function VirtualTryOn({ preset, typeName }) {
 
     setCameraLoading(true);
     setError("");
+    setRetryKind(null);
     setStatus("Waiting for camera permission…");
     setLandmarks(null);
     try {
@@ -209,44 +272,69 @@ export default function VirtualTryOn({ preset, typeName }) {
       canvas.height = Math.round(video.videoHeight * scale);
       paintPreview(canvas, video, null, settingsRef.current, true);
 
-      setStatus("Loading the live face-landmark model…");
-      const landmarker = await loadFaceLandmarker("VIDEO");
+      setStatus("Loading the live preview model…");
+      const landmarkers = { [modeOf(settingsRef.current.placement)]: await getLandmarker(modeOf(settingsRef.current.placement), "VIDEO") };
+      const loading = {};
+      const seen = {};
       cameraActiveRef.current = true;
       setCameraActive(true);
       setCameraLoading(false);
       setStatus("Live preview is running. Keep your face centered and adjust the controls as needed.");
 
-      let faceSeen = false;
       const renderLiveFrame = () => {
         if (!cameraActiveRef.current || !videoRef.current || !canvasRef.current) return;
         const now = performance.now();
-        if (videoRef.current.readyState >= 2 && now - lastDetectionRef.current > 80) {
+        // The placement can switch between face and navel while the camera runs: load that model on first use.
+        const liveMode = modeOf(settingsRef.current.placement);
+        const landmarker = landmarkers[liveMode];
+        if (!landmarker && !loading[liveMode]) {
+          loading[liveMode] = true;
+          getLandmarker(liveMode, "VIDEO")
+            .then((loaded) => { landmarkers[liveMode] = loaded; })
+            .catch((cause) => {
+              if (!cameraActiveRef.current) return;
+              stopCamera({ keepStatus: true });
+              setStatus("");
+              setError(cause.message);
+              setRetryKind("camera");
+            })
+            .finally(() => { loading[liveMode] = false; });
+        }
+        if (landmarker && videoRef.current.readyState >= 2 && now - lastDetectionRef.current > 80) {
           lastDetectionRef.current = now;
           try {
             const result = landmarker.detectForVideo(videoRef.current, now);
-            const landmarks = result.faceLandmarks?.[0];
-            liveLandmarksRef.current = landmarks?.length ? mirrorLandmarks(landmarks, true) : null;
-            if (landmarks?.length && !faceSeen) {
-              faceSeen = true;
-              setStatus("Face found — the live jewelry preview is tracking your movement.");
+            const found = liveMode === "pose" ? result.landmarks?.[0] : result.faceLandmarks?.[0];
+            liveLandmarksRef.current = found?.length ? { mode: liveMode, points: mirrorLandmarks(found, true) } : null;
+            if (found?.length && !seen[liveMode]) {
+              seen[liveMode] = true;
+              setStatus(liveMode === "pose" ? "Body found — the live jewelry preview is tracking your movement." : "Face found — the live jewelry preview is tracking your movement.");
             }
           } catch (cause) {
-            console.warn("A live face-landmark frame was skipped:", cause);
+            console.warn("A live landmark frame was skipped:", cause);
           }
         }
-        showHint(paintPreview(canvasRef.current, videoRef.current, liveLandmarksRef.current, settingsRef.current, true));
+        const live = liveLandmarksRef.current;
+        const points = live?.mode === liveMode ? live.points : null;
+        const frameHint = paintPreview(canvasRef.current, videoRef.current, points, settingsRef.current, true);
+        showHint(frameHint || (liveMode === "pose" && !points ? NAVEL_HINT : ""));
         animationFrameRef.current = requestAnimationFrame(renderLiveFrame);
       };
       renderLiveFrame();
     } catch (cause) {
       stopCamera({ keepStatus: true });
       setStatus("");
-      if (cause?.name === "NotAllowedError") {
-        setError("Camera permission was not granted. Allow camera access in your browser, or upload a photo instead.");
-      } else if (cause?.name === "NotFoundError") {
-        setError("No camera was found on this device. You can upload a photo instead.");
+      setRetryKind("camera");
+      if (cause?.code === MODEL_LOAD) {
+        setError(cause.message);
+      } else if (cause?.name === "NotAllowedError" || cause?.name === "SecurityError") {
+        setError("The camera is blocked. Allow camera access in your browser settings, then tap Retry. Or upload a photo instead.");
+      } else if (cause?.name === "NotFoundError" || cause?.name === "DevicesNotFoundError" || cause?.name === "OverconstrainedError") {
+        setError("No camera was found on this device. Connect one and tap Retry, or upload a photo instead.");
+      } else if (cause?.name === "NotReadableError" || cause?.name === "TrackStartError" || cause?.name === "AbortError") {
+        setError("Your camera is in use by another app. Close that app and tap Retry, or upload a photo instead.");
       } else {
-        setError(cause?.message || "The live camera could not start. You can upload a photo instead.");
+        setError("The camera couldn't start. Tap Retry, or upload a photo instead.");
       }
     }
   };
@@ -256,6 +344,7 @@ export default function VirtualTryOn({ preset, typeName }) {
     if (!file) return;
     if (cameraActive || cameraLoading) stopCamera({ keepStatus: true });
     setError("");
+    setRetryKind(null);
     setStatus("");
     setLandmarks(null);
     if (!file.type.startsWith("image/")) {
@@ -274,26 +363,53 @@ export default function VirtualTryOn({ preset, typeName }) {
 
   const detectFace = async () => {
     if (!imageRef.current) return;
+    const wantPose = mode === "pose";
     setDetecting(true);
     setError("");
-    setStatus("Loading the on-device face model…");
+    setRetryKind(null);
+    setStatus(wantPose ? "Loading the on-device body model…" : "Loading the on-device face model…");
     try {
-      const landmarker = await loadFaceLandmarker("IMAGE");
+      const landmarker = await getLandmarker(mode, "IMAGE");
       const result = landmarker.detect(imageRef.current);
-      const landmarks = result.faceLandmarks?.[0];
-      if (!landmarks?.length) {
-        throw new Error("No face was found. Try a clear, front-facing photo with both sides of the face visible.");
+      const found = wantPose ? result.landmarks?.[0] : result.faceLandmarks?.[0];
+      if (!found?.length) {
+        throw Object.assign(new Error(
+          wantPose
+            ? "No body was found. Try a photo that shows you from the shoulders down to the hips."
+            : "No face was found. Try a clear, front-facing photo with both sides of the face visible.",
+        ), { code: NO_SUBJECT });
       }
 
-      setLandmarks(mirrorLandmarks(landmarks, false));
-      setStatus("Face landmarks found. Adjust the preview controls until the jewelry sits where you want it.");
+      setLandmarks(mirrorLandmarks(found, false));
+      setLandmarksMode(mode);
+      setStatus(wantPose ? "Body found. Adjust the preview controls until the jewelry sits where you want it." : "Face landmarks found. Adjust the preview controls until the jewelry sits where you want it.");
     } catch (cause) {
       setLandmarks(null);
       setStatus("");
-      setError(cause?.message || "The face model could not load. Check your connection and try again.");
+      if (cause?.code === MODEL_LOAD || cause?.code === NO_SUBJECT) {
+        setError(cause.message);
+        if (cause.code === MODEL_LOAD) setRetryKind("photo");
+      } else {
+        setError("Detection didn't work this time. Tap Retry, or try another photo.");
+        setRetryKind("photo");
+      }
     } finally {
       setDetecting(false);
     }
+  };
+
+  // Switching between face and navel placements re-runs detection on a loaded photo (live camera re-detects by itself).
+  useEffect(() => {
+    if (landmarks && landmarksMode !== mode && imageUrl && !cameraActive && !cameraLoading && !detecting) detectFace();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mode]);
+
+  const retry = () => {
+    const kind = retryKind;
+    setError("");
+    setRetryKind(null);
+    if (kind === "photo") detectFace();
+    else startCamera();
   };
 
   return (
@@ -397,6 +513,7 @@ export default function VirtualTryOn({ preset, typeName }) {
           {hint && <p className="try-on__status" role="status">{hint}</p>}
           {placementNote(placement) && <p className="try-on__status">{placementNote(placement)}</p>}
           {error && <p className="try-on__error" role="alert">{error}</p>}
+          {error && retryKind && <button className="button button--dark" type="button" onClick={retry}>Retry</button>}
           <p className="try-on__notice">
             Camera permission is requested only when you tap “Use live camera.” Photos and frames stay on this device. Visual styling preview only: landmarks approximate position and do not assess anatomy, healing, or whether a piercing is safe. Your piercer makes the final placement decision.
           </p>

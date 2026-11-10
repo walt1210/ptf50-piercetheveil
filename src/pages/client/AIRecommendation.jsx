@@ -8,8 +8,19 @@ import { distinctValues } from "../../features/jewelry/jewelryFilters";
 import { recommend } from "../../features/recommendations/recommendationService";
 import { recommendPiercingSamples } from "../../features/recommendations/sampleRecommendationService";
 import { toUserMessage } from "../../services/api";
+import { placementFromName } from "../../features/tryon/placements";
 
 const EMPTY = { piercingTypeId: "", budget: "", style: "", material: "", color: "", freeText: "" };
+
+// placement = id from features/tryon/placements.js; chips without one ask the customer to choose a placement first.
+const CHIPS = [
+  { text: "simple na pang helix", placement: "helix" },
+  { text: "hindi masakit na pang-everyday" },
+  { text: "Small gold stud for my lobe", placement: "lobe" },
+  { text: "Delicate silver hoop" },
+  { text: "Bold statement conch piece", placement: "conch" },
+  { text: "Minimal septum ring", placement: "septum" },
+];
 
 export default function AIRecommendation() {
   const [types, setTypes] = useState([]);
@@ -41,10 +52,9 @@ export default function AIRecommendation() {
   const colors = useMemo(() => distinctValues(catalog, "color"), [catalog]);
   const set = (key) => (e) => setForm((f) => ({ ...f, [key]: e.target.value }));
 
-  const submit = async (e) => {
-    e.preventDefault();
+  const run = async (values) => {
     if (busy) return;
-    if (!form.piercingTypeId) {
+    if (!values.piercingTypeId) {
       setError("Please choose where the piercing will go.");
       return;
     }
@@ -53,14 +63,14 @@ export default function AIRecommendation() {
     setResult(null);
     setProgress(null);
     try {
-      const shopResult = await recommend({ ...form, onProgress: setProgress });
-      const placementName = types.find((type) => type.id === form.piercingTypeId)?.name;
+      const shopResult = await recommend({ ...values, onProgress: setProgress });
+      const placementName = types.find((type) => type.id === values.piercingTypeId)?.name;
       const inspirations = await recommendPiercingSamples({
         placementName,
-        style: form.style,
-        material: form.material,
-        color: form.color,
-        freeText: form.freeText,
+        style: values.style,
+        material: values.material,
+        color: values.color,
+        freeText: values.freeText,
         onProgress: setProgress,
       });
       setResult({ ...shopResult, inspirations });
@@ -70,6 +80,24 @@ export default function AIRecommendation() {
       setBusy(false);
       setProgress(null);
     }
+  };
+
+  const submit = (e) => {
+    e.preventDefault();
+    run(form);
+  };
+
+  // A chip fills the description; if it names a piercing, that placement is preselected and the search runs.
+  const pickChip = (chip) => {
+    if (busy) return;
+    const match = chip.placement ? types.find((t) => placementFromName(t.name)?.id === chip.placement) : null;
+    const next = { ...form, freeText: chip.text, piercingTypeId: match ? match.id : form.piercingTypeId };
+    setForm(next);
+    if (!next.piercingTypeId) {
+      setError("Choose where the piercing will go, then tap “Find my pieces”.");
+      return;
+    }
+    run(next);
   };
 
   const placementName = types.find((t) => t.id === form.piercingTypeId)?.name;
@@ -124,6 +152,11 @@ export default function AIRecommendation() {
             <textarea rows={3} maxLength={300} value={form.freeText} onChange={set("freeText")} disabled={busy}
               placeholder="e.g. simple gold hoop, hindi masyadong mabigat" />
           </label>
+          <div className="chip-row field--wide" role="group" aria-label="Example descriptions">
+            {CHIPS.map((chip) => (
+              <button key={chip.text} type="button" onClick={() => pickChip(chip)} disabled={busy || Boolean(setupError)}>{chip.text}</button>
+            ))}
+          </div>
 
           <div className="stylist-form__actions">
             <button className="button button--dark" type="submit" disabled={busy || Boolean(setupError)} aria-busy={busy}>
