@@ -4029,6 +4029,35 @@ body.nav-open {
   margin-top: 16px;
 }
 
+.booking-consent {
+  background: rgba(247, 206, 133, 0.09);
+  border: 1px solid rgba(247, 206, 133, 0.34);
+  margin-top: 22px;
+  padding: 18px;
+}
+
+.booking-consent__eyebrow {
+  color: var(--gold) !important;
+  font-size: 8px !important;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  margin: 0 0 7px !important;
+  text-transform: uppercase;
+}
+
+.booking-consent > strong {
+  color: var(--cream);
+  display: block;
+  font-family: var(--serif);
+  font-size: 22px;
+  font-weight: 500;
+}
+
+.booking-consent__cta {
+  margin-top: 16px;
+  text-decoration: none;
+}
+
 @media (max-width: 520px) {
   .guest-form {
     grid-template-columns: 1fr;

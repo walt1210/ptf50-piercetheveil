@@ -17,6 +17,7 @@ import {
 
 const MANILA_OFFSET = "+08:00";
 const SETTING_LABELS = { address: "Client address", popup: "Pop-up booth" };
+const CONSENT_FORM_URL = "https://forms.gle/Dr3gUE1ifpY8C5jD9";
 // Flip to true when the shop announces a pop-up booth. Until then the option stays visible but cannot be chosen,
 // so nobody books a pop-up that does not exist.
 const POPUP_AVAILABLE = false;
@@ -520,6 +521,19 @@ export default function Appointment() {
                   <p className="booking-confirmation__label">Your reference code</p>
                   <p className="booking-confirmation__code">{formatReference(confirmation.reference)}</p>
                   <p>Take a screenshot or write it down. You will need this code and your mobile number to check or cancel your request.</p>
+                  <div className="booking-consent">
+                    <p className="booking-consent__eyebrow">Required next step</p>
+                    <strong>Complete the consent form</strong>
+                    <p>Please submit the form before your appointment. Keep your reference code nearby in case the form asks for your booking details.</p>
+                    <a
+                      className="booking-summary__cta booking-consent__cta"
+                      href={CONSENT_FORM_URL}
+                      target="_blank"
+                      rel="noreferrer"
+                    >
+                      Open consent form <span aria-hidden="true">↗</span>
+                    </a>
+                  </div>
                   <p><Link to={`/booking?ref=${confirmation.reference}`}>Check or cancel this request later</Link></p>
                   <button className="booking-summary__cta" type="button" onClick={startAnotherRequest}>
                     Make another request <span>→</span>
